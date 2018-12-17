@@ -1,0 +1,11 @@
+from Bio import AlignIO
+from Bio.Align import AlignInfo
+#------------------------------------------------------------------------------
+def consensus_sequence(alignment, format):
+    """
+    Obtain a consensus sequence from an alignment.
+    """
+    ali = AlignIO.read(open(alignment), format)
+    summary_align = AlignInfo.SummaryInfo(ali)
+    consensus = summary_align.dumb_consensus()
+    return consensus

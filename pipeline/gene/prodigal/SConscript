@@ -1,0 +1,13 @@
+Import('gene_env')
+"""
+Predict genes with Prodigal
+
+-------------------------------------------------------------------------------
+Ian Rambo
+Last updated: 2018-12-10
+Thirteen... that's a mighty unlucky number... for somebody!
+"""
+
+prodigal_targets = [gene_env['PRODIGALOPTS']['-o'], gene_env['PRODIGALOPTS']['-a']]
+prodigal_sources = [gene_env['PRODIGALOPTS']['-i']]
+gene_env.Prodigal(prodigal_targets, prodigal_sources)

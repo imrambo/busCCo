@@ -1,0 +1,274 @@
+"""
+Build hidden Markov model databases from multiple sequence alignments.
+
+-------------------------------------------------------------------------------
+Ian Rambo 2018-12-03
+Last updated: 2018-12-14
+Thirteen... that's a mighty unlucky number... for somebody!
+"""
+import pickle
+import os
+import re
+import warnings
+#==============================================================================
+###---Set environment
+database_env = Environment(SRCDIR=os.path.abspath('../src'),
+MSACURDIR='/home/rambo/database/hmm_profile/CDD/fasta')
+
+database_env.Replace(DBFILE = os.path.join(database_env['SRCDIR'], 'CasProfilesMaster.txt'),
+#HMMDIR=os.path.join(database_env['SRCDIR'], 'hmm'),
+#ALIGNDIR=os.path.join(database_env['SRCDIR'], 'msa'),
+HMMDIR = 'gene/hmm',
+ALIGNDIR = 'gene/msa',
+TMPDIR=os.path.abspath('../tmp'),
+CRISPR_REP='crispr/repeat')
+
+VariantDir(database_env['TMPDIR'], database_env['MSACURDIR'], duplicate = 0)
+VariantDir(database_env['ALIGNDIR'], database_env['TMPDIR'], duplicate = 0)
+VariantDir(database_env['HMMDIR'], database_env['ALIGNDIR'], duplicate = 0)
+# ==============================================================================
+###---Functions.
+def find_re(pattern, path):
+    '''
+    Find files using a regular expression.
+    '''
+    result = []
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if re.match(pattern, name):
+                result.append(os.path.join(root, name))
+                #result.extend(os.path.join(root, name))
+    return result
+#------------------------------------------------------------------------------
+def build_path_dict(file_table, search_dirs, ext):
+    '''
+    Return a dictionary with paths for corresponding files
+    (e.g. HMM profiles from several databases for the same protein)
+    '''
+    path_dict = {}
+    with open(file_table, 'r') as ftbl:
+        ftbl.readline()
+        for c in ftbl:
+            cList = c.split('\t')
+            cdd = cList[0]
+            pfam = cList[1]
+            tigr = cList[2]
+            cog = cList[3]
+            function = cList[4]
+            gene = cList[5]
+            group = cList[6]
+            subtype = cList[7]
+            subtype = subtype.replace(',', '_')
+            id = '--'.join([gene, subtype, cdd])
+            dbPathList = []
+            for db in [cdd, pfam, tigr, cog]:
+                if db != 'NA':
+                    db_pattern = '%s\.%s|%s\.%s' % (db, ext.lower(), db, ext.upper())
+                    dbPath = [find_re(db_pattern, s) for s in search_dirs]
+                    if dbPath:
+                        dbPathList.extend(dbPath)
+                    else:
+                        warn_message = 'file %s not found' % db
+                        warnings.warn(warn_message)
+            if dbPathList:
+                #Flatten the list
+                dbPathList = [item for sublist in dbPathList for item in sublist]
+                path_dict[id] = dbPathList
+            else:
+                pass
+    return path_dict
+#------------------------------------------------------------------------------
+def msa_merge_table(target, source, env = database_env):
+    '''
+    Create a merged MSA table for mafft --merge.
+    e.g.
+    1 2 3 #
+    4 5 6 7 #
+    8 9 10 #
+    Sequences 1, 2, and 3 are aligned.
+    Sources is a list of MSA paths.
+    '''
+    with open(str(target[0]), 'w') as mt:
+        nseq = 1
+        for msa in source:
+            msa = str(msa)
+            with open(msa, 'r') as m:
+                for i in m:
+                    if i.startswith('>'):
+                        mt.write('%d ' % nseq)
+                        nseq += 1
+                mt.write('#\n')
+    return None
+
+msa_table_build = Builder(action = msa_merge_table, suffix = '.txt', src_suffix = '.FASTA')
+#------------------------------------------------------------------------------
+def pickle_dump(pickle_out, object):
+    '''
+    Save a pickle object.
+    '''
+    pickle.dump( object, open( pickle_out, 'wb' ) )
+    return None
+#==============================================================================
+###---Actions and Builders.
+
+#Keep only unique sequences in a FASTA file
+#Read from stdin and print to stdout
+uniq_fasta_action = (r"sed -e '/^>/s/$/@/' -e 's/^>/#/' | "
+r"tr -d '\n' | "
+r'tr "#" "\n" | '
+r'tr "@" " " | '
+r"sort -u -t' ' -f -k 2,2 | "
+r"sed '1d' | "
+r"sed -e 's/^/>/' -e 's/ /\n/' | "
+r'tr " " "\n"')
+#------------------------------------------------------------------------------
+mafft_merge = 'mafft --auto --anysymbol --maxiterate 1000 --merge $SOURCES > $TARGET'
+mafft_merge_build = Builder(action = mafft_merge)
+#------------------------------------------------------------------------------
+# mafft_addprofile = (uniq_fasta_action.replace(r'| \n', r'| ') + r" | "
+# r"python fasta_unique_header.py | "
+# r"tee ${TARGETS[0]} | "
+# r"mafft --auto --anysymbol --maxiterate 1000 --reorder --addprofile ${TARGETS[0]} ${SOURCES[1]} > ${TARGETS[1]}"
+# )
+
+mafft_addprofile = (uniq_fasta_action.replace(r'| \n', r'| ') + r" | "
+r"tee ${TARGETS[0]} | "
+r"mafft --auto --anysymbol --maxiterate 1000 --reorder --addprofile ${TARGETS[0]} ${SOURCES[1]} | "
+r"python fasta_unique_header.py > ${TARGETS[1]}")
+
+mafft_addprofile_build = Builder(action = [mafft_addprofile, Delete('${TARGETS[0]}')])
+#------------------------------------------------------------------------------
+"""
+MAFFT --add builder.
+SOURCES[0] are the sequences/MSA to add to the existing MSA
+SOURCES[1] is the existing MSA
+TARGET is the new MSA
+"""
+mafft_add_action = (r'mafft --auto --anysymbol --maxiterate 1000 --reorder --add ${SOURCES[0]} ${SOURCES[1]} | ',
+uniq_fasta_action + r' > $TARGET')
+
+mafft_add_build = Builder(action = ''.join(mafft_add_action))
+#-------------------------------------------------------------------------------
+#Make sure FASTA headers are unique
+fasta_unique_header_build = Builder(action = 'python %s/fasta_unique_header.py --input $SOURCE --output $TARGET' % os.getcwd())
+#Change format of MSA from FASTA to stockholm
+msa_format_build = Builder(action = 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % os.getcwd())
+#------------------------------------------------------------------------------
+#Create builders dictionary and append to environment
+builders = {'MafftMerge':mafft_merge_build, 'MSATbl':msa_table_build,
+'MafftAddProfile':mafft_addprofile_build, 'MafftAdd':mafft_add_build,
+'FastaUniq':fasta_unique_header_build, 'MSAFormat':msa_format_build}
+
+database_env.Append(BUILDERS = builders)
+
+SConscript(['protein/SConscript', 'crispr/SConscript'], exports = 'datbase_env')
+
+Export('database_env')
+#==============================================================================
+# ___  ___  ___  _____  _   _
+# |  \/  | / _ \|_   _|| \ | |
+# | .  . |/ /_\ \ | |  |  \| |
+# | |\/| ||  _  | | |  | . ` |
+# | |  | || | | |_| |_ | |\  |
+# \_|  |_/\_| |_/\___/ \_| \_/
+#
+#------------------------------------------------------------------------------
+# #Create or load dictionary for corresponding multiple sequence alignment paths
+# dict_pickle = os.path.join(database_env['SRCDIR'], 'msa_source_paths.p')
+# #Command(dict_pickle, database_env['DBFILE'], 'python3 %s/msa_path_dict.py --input $SOURCE --output $TARGET --search_dir %s --extension %s' % (os.getcwd(), database_env['MSACURDIR'], 'FASTA'))
+# msa_path_dict = {}
+# if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
+#     print('msa path dictionary exists, loading pickle object %s...' % dict_pickle)
+#     msa_paths_dict = pickle.load( open( dict_pickle, 'rb' ) )
+# else:
+#     msa_paths_dict = build_path_dict(file_table = database_env['DBFILE'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
+#     pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
+# #------------------------------------------------------------------------------
+# #Options for hmmbuild
+# hmmbuild_opts = {'--cpu':2, '--seed':42}
+#
+# #File containing paths to built HMM profiles
+# hmm_pathfile = open(os.path.join(database_env['SRCDIR'], 'hmm_paths.txt'), 'w')
+# #File containing paths to combined MSAs
+# msa_pathfile = open(os.path.join(database_env['SRCDIR'], 'msa_paths.txt'), 'w')
+#
+# #Create merged alignments from curated MSAs and build HMM profiles
+# for k, v in msa_paths_dict.items():
+#     v = [i for i in v if i != 'NA']
+#     if v:
+#         k = k.replace('\"', '')
+#         hmm_out = os.path.join(database_env['HMMDIR'], '%s.hmm' % k)
+#         hmmbuild_opts['-n'] = k
+#         hmmbuild_optstring = ' '.join([str(key) + ' ' + str(value) for key, value in hmmbuild_opts.items()])
+#         hmmbuild_action = 'hmmbuild %s $TARGET $SOURCE' % hmmbuild_optstring
+#
+#         if len(v) == 1:
+#             ali_fasta_uniq = os.path.join(database_env['ALIGNDIR'], '%s.fasta' % k)
+#             ali_stock_uniq = os.path.splitext(ali_fasta_uniq)[0] + '.stockholm'
+#
+#             database_env.FastaUniq(ali_fasta_uniq, v[0])
+#             database_env.MSAFormat(ali_stock_uniq, ali_fasta_uniq)
+#             database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
+#
+#             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+#             msa_pathfile.write(os.path.abspath(ali_fasta_uniq) + '\n' + os.path.abspath(ali_stock_uniq) + '\n')
+#
+#         elif len(v) == 2:
+#             #Merge the two multiple sequence alignments
+#             ali_fasta_tmp = os.path.join(database_env['TMPDIR'], '%s.fasta' % k)
+#             ali_fasta_uniq = os.path.join(database_env['ALIGNDIR'], os.path.basename(ali_fasta_tmp))
+#             ali_stock_uniq = os.path.splitext(ali_fasta_uniq)[0] + '.stockholm'
+#
+#             database_env.MafftAdd(ali_fasta_tmp, v)
+#             database_env.FastaUniq(ali_fasta_uniq, ali_fasta_tmp)
+#             database_env.MSAFormat(ali_stock_uniq, ali_fasta_uniq)
+#             database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
+#
+#             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+#             msa_pathfile.write(os.path.abspath(ali_fasta_uniq) + '\n' + os.path.abspath(ali_stock_uniq) + '\n')
+#
+#         else:
+#             #If 3+ multiple sequence alignments, iteratively merge them
+#             ali_init = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (k, 1))
+#             database_env.MafftAdd(ali_init, [v[0], v[1]])
+#             ali_fasta_tmp = str()
+#             for i in range(2, len(v)):
+#                 add_ali = v[i]
+#                 ext_ali = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (k, i-1))
+#                 ali_fasta_tmp = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (k, i))
+#                 database_env.MafftAdd(ali_fasta_tmp, [add_ali, ext_ali])
+#             ali_fasta_uniq = os.path.join(database_env['ALIGNDIR'], os.path.basename(ali_fasta_tmp))
+#             ali_stock_uniq = os.path.splitext(ali_fasta_uniq)[0] + '.stockholm'
+#
+#             #Get FASTA alignment with unique headers
+#             database_env.FastaUniq(ali_fasta_uniq, ali_fasta_tmp)
+#             #Convert FASTA aligment to Stockholm format
+#             database_env.MSAFormat(ali_stock_uniq, ali_fasta_uniq)
+#             msa_pathfile.write(os.path.abspath(ali_fasta_uniq) + '\n' + os.path.abspath(ali_stock_uniq) + '\n')
+#
+#             #Build the HMM
+#             hmm_out = os.path.join(database_env['HMMDIR'], os.path.splitext(os.path.basename(ali_stock_uniq))[0] + '.hmm')
+#             database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
+#             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+#     else:
+#         pass
+# hmm_pathfile.close()
+# msa_pathfile.close()
+# Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
+
+###---END---###
+#------------------------------------------------------------------------------
+###---BONEYARD---###
+"""
+###Code for merging alignments with mafft --merge
+# msatbl_path = os.path.join(database_env['ALIGNDIR'], '%s_msatbl.txt' % k)
+# database_env.MSATbl(msatbl_path, v) #create the MSA table
+# msa_cat = Command(os.path.join(database_env['ALIGNDIR'], '%s_seqs.fasta' % k), v, ['cat $SOURCES > $TARGET'])
+# msa_merge_path = os.path.join(database_env['ALIGNDIR'], '%s_mafft.fasta' % k)
+
+#Create the merged MSA
+#database_env.MafftMerge(msa_merge_path, [msatbl_path, msa_cat])
+
+#Build HMM from merged MSA
+#Command(hmm_out, msa_merge_path, hmmbuild_action)
+"""

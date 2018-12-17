@@ -1,0 +1,1 @@
+Command(os.path.join(database_env['CRISPR_REP'], 'CRISPR_DRdatabase.fna'), None, 'wget http://crispr.i2bc.paris-saclay.fr/crispr/BLAST/DR/DRdatabase -O $TARGET')

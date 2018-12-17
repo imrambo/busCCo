@@ -1,0 +1,23 @@
+import os
+#------------------------------------------------------------------------------
+def SymLink(target, source, env):
+    '''
+    Create a symbolic link.
+    '''
+    os.symlink(os.path.abspath(str(source[0])), os.path.abspath(str(target[0])))
+    return None
+#------------------------------------------------------------------------------
+AddOption('--fasta', dest='fasta', type='string', nargs=1,
+action='store', help='input fasta file path')
+
+pipeline_env = Environment(FASTA=GetOption('fasta'))
+pipeline_env.Replace(FASTAID=os.path.splitext(os.path.basename(pipeline_env['FASTA']))[0])
+#pipeline_env.Replace(OUTROOT=os.path.join(os.getcwd(), 'output/%s' % pipeline_env['FASTAID']),
+pipeline_env.Replace(OUTROOT=os.path.abspath('output/%s' % pipeline_env['FASTAID']),
+SRCDIR=os.path.abspath('../src'),
+TMPDIR=os.path.abspath('../tmp'),
+CAS1=0,
+CCFIND_PATHS=os.path.abspath('output/genome_paths_ccfinder.txt'))
+Export('pipeline_env')
+
+SConscript(['crispr/SConscript', 'gene/SConscript'])

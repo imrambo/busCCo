@@ -1,0 +1,47 @@
+import os
+
+"""
+Mine CRISPR arrays and determine consensus sequence(s).
+-------------------------------------------------------------------------------
+Ian Rambo
+Last updated: 2018-12-10
+Thirteen... that's a mighty unlucky number... for somebody!
+"""
+
+Import('pipeline_env')
+
+crispr_env = Environment(MINCED = os.path.join(pipeline_env['OUTROOT'], 'crispr/minced'),
+PILERCR = os.path.join(pipeline_env['OUTROOT'], 'crispr/pilercr'))
+
+#Min/Max lengths for CRISPR spacers and repeats
+maxSpacerLen = 64
+minSpacerLen = 8
+maxRepeatLen = 72
+minRepeatLen = 16
+#------------------------------------------------------------------------------
+#Mine CRISPRs with MinCED
+minced_opts = {'-searchWL':8, '-minNR':3, '-minRL':minRepeatLen,
+'-maxRL':maxRepeatLen, '-minSL':minSpacerLen, '-maxSL':maxSpacerLen}
+
+minced_output = [os.path.join(crispr_env['MINCED'], f % pipeline_env['FASTAID']) for f in ['%s_crisprs.gff', '%s_spacers.fna']]
+crispr_env.Replace(MINCED_OUT=minced_output)
+minced_optstring = ' '.join([str(key) + ' ' + str(value) for key, value in minced_opts.items()])
+minced_action = '/home/rambo/bin/minced/minced %s -gffFull -spacers $SOURCE $TARGET' % minced_optstring
+
+Command(minced_output, pipeline_env['FASTA'], minced_action)
+#------------------------------------------------------------------------------
+#Mine CRISPRs with PilerCR
+pilercr_opts = {'-minrepeat':minRepeatLen, '-maxrepeat':maxRepeatLen,
+'-minspacer':minSpacerLen, '-maxspacer':maxSpacerLen, '-mincons':0.80,
+'-minid':0.80, '-minspacerratio':0.75}
+
+pilercr_optstring = ' '.join([str(key) + ' ' + str(value) for key, value in pilercr_opts.items()])
+pilercr_output = [os.path.join(crispr_env['PILERCR'], f % pipeline_env['FASTAID']) for f in ['%s_pilercr_report.txt', '%s_pilercr_consensus.fna']]
+crispr_env.Replace(PILERCR_OUT=pilercr_output)
+pilercr_action = '/home/rambo/bin/pilercr1.06/pilercr %s -quiet -trimseqs -in $SOURCE -out ${TARGETS[0]} -seq ${TARGETS[1]}' % pilercr_optstring
+
+Command(pilercr_output, pipeline_env['FASTA'], pilercr_action)
+#------------------------------------------------------------------------------
+Export('crispr_env')
+#------------------------------------------------------------------------------
+SConscript('alignment/SConscript', exports = ['crispr_env', 'database_env'])
