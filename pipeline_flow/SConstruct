@@ -1,0 +1,56 @@
+import os
+import sys
+
+#Add scripts directory to path
+sys.path.insert(0, os.path.abspath('../scripts'))
+
+from besthit import domtbl_besthits, blast_besthits
+from gff3_parser import gff3_parser
+import PROGRAM_OPTIONS
+
+EnsurePythonVersion(3, 5)
+EnsureSConsVersion(3, 0, 1)
+#------------------------------------------------------------------------------
+###---Command line options---###
+AddOption('--fasta', dest='fasta', type='string', nargs=1,
+action='store', help='input FASTA file path')
+AddOption('--prefix_id', dest ='prefix_id', type='string', nargs=1,
+action='store', default=None,
+help='identifier for FASTA file. If nothing is supplied, the file basename is used')
+AddOption('--outdir_root', dest='outdir_root', type='string', nargs=1,
+action='store', help='path to root output directory')
+
+pipeline_env = Environment(FASTA=GetOption('fasta'))
+pipeline_env.Replace(FASTAID=GetOption('prefix_id'))
+
+###---If no prefix id is specified, use the name of the FASTA file
+if pipeline_env['FASTAID'] is None:
+    pipeline_env.Replace(FASTAID = os.path.splitext(os.path.basename(pipeline_env['FASTA']))[0])
+else:
+    pass
+
+pipeline_env.Replace(OUTROOT=os.path.abspath('output/%s' % pipeline_env['FASTAID']),
+SRCDIR=os.path.abspath('../src'),
+TMPDIR=os.path.abspath('../tmp'),
+CAS1=0,
+CRISPR=0)
+#------------------------------------------------------------------------------
+prodigal_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.prodigal_opts)
+prodigal_action = 'prodigal %s' % prodigal_optstring
+
+prodigal_build = Builder(action = prodigal_action)
+#------------------------------------------------------------------------------
+#Builder to get best hits from HMMER domtbl output (protein search only)
+domtbl_besthit_builder = Builder(action = domtbl_besthits)
+
+#Builder to get best hits from BLAST+ alignment results
+blast_besthit_builder = Builder(action = blast_besthits)
+
+builders = {'BlastBestHit':blast_besthit_builder, 'Prodigal':prodigal_build,
+'DomBestHit':domtbl_besthit_builder}
+#------------------------------------------------------------------------------
+pipeline_env.Append(BUILDERS = builders)
+
+Export('pipeline_env')
+
+SConscript(['crispr/SConscript', 'gene/SConscript', 'clusters/SConscript'], exports = 'pipeline_env')

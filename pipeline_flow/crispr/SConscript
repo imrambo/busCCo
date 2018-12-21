@@ -1,0 +1,93 @@
+import os
+"""
+Mine CRISPR arrays.
+-------------------------------------------------------------------------------
+Ian Rambo
+Thirteen... that's a mighty unlucky number... for somebody!
+"""
+#------------------------------------------------------------------------------
+Import('pipeline_env')
+Import('database_env')
+#------------------------------------------------------------------------------
+crispr_env = Environment(MINCED = os.path.join(pipeline_env['OUTROOT'], 'crispr/minced'),
+PILERCR = os.path.join(pipeline_env['OUTROOT'], 'crispr/pilercr'))
+
+#Min/Max lengths for CRISPR spacers and repeats
+# maxSpacerLen = 64
+# minSpacerLen = 8
+# maxRepeatLen = 72
+# minRepeatLen = 16
+#------------------------------------------------------------------------------
+def minced_gff2fasta(target, source, env):
+    """
+    Write a FASTA file of CRISPR repeat sequences parsed from a
+    MinCED GFF3 output file.
+    """
+    import re
+    from gff3_parser import gff3_parser
+    minced_dict = gff3_parser(source, program = 'minced')
+    repeats = [('>%s|%s' % (subdict['seqid'], key), subdict['repeat_sequence']) for key, subdict in source if re.match(r'CRISPR\d+$', key)]
+    with open(target, 'w') as tout:
+        for r in repeats:
+            tout.write('%s\n%s\n' % (r[0], r[1]))
+    return None
+
+minced_fasta_builder = Builder(action = minced_gff2fasta)
+pipeline_env['BUILDERS']['MincedGFF2FASTA'] = minced_fasta_builder
+#------------------------------------------------------------------------------
+#Mine CRISPRs with MinCED
+# minced_opts = {'-searchWL':8, '-minNR':3, '-minRL':minRepeatLen,
+# '-maxRL':maxRepeatLen, '-minSL':minSpacerLen, '-maxSL':maxSpacerLen}
+
+minced_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.minced_opts)
+
+minced_output = [os.path.join(crispr_env['MINCED'], f % pipeline_env['FASTAID']) for f in ['%s_crisprs.gff', '%s_spacers.fna']]
+crispr_env.Replace(MINCED_OUT=minced_output)
+
+#issue with minced not being added to $PATH... what's up?
+minced_action = '/home/rambo/bin/minced/minced %s -gffFull -spacers $SOURCE $TARGET' % minced_optstring
+
+Command(minced_output, pipeline_env['FASTA'], minced_action)
+#------------------------------------------------------------------------------
+#Mine CRISPRs with PilerCR
+# pilercr_opts = {'-minrepeat':minRepeatLen, '-maxrepeat':maxRepeatLen,
+# '-minspacer':minSpacerLen, '-maxspacer':maxSpacerLen, '-mincons':0.80,
+# '-minid':0.80, '-minspacerratio':0.75}
+
+pilercr_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.pilercr_opts)
+
+pilercr_output = [os.path.join(crispr_env['PILERCR'], f % pipeline_env['FASTAID']) for f in ['%s_pilercr_report.txt', '%s_pilercr_consensus.fna']]
+crispr_env.Replace(PILERCR_OUT=pilercr_output)
+#issue with pilercr not being added to $PATH... what's up?
+pilercr_action = '/home/rambo/bin/pilercr1.06/pilercr %s -quiet -trimseqs -in $SOURCE -out ${TARGETS[0]} -seq ${TARGETS[1]}' % pilercr_optstring
+
+Command(pilercr_output, pipeline_env['FASTA'], pilercr_action)
+#------------------------------------------------------------------------------
+#Extract CRISPR repeats from MinCED GFF3
+minced_gff = [m for m in minced_output if m.endswith('.gff')][0]
+minced_repeat_fasta = os.path.join(crispr_env['MINCED'], pipeline_env['FASTAID'] + '_repeats.fna')
+pipeline_env.MincedGFF2FASTA(minced_repeat_fasta, minced_gff)
+
+#Concatenate CRISPR repeat FASTA files from MinCED and PilerCR
+pilercr_repeat_fasta = [p for p in pilercr_output if p.endswith('.fna')][0]
+cat_repeat_fasta = os.path.join(pipeline_env['OUTROOT'], 'crispr/%s_minced_pilercr_repeats.fna' % pipeline_env['FASTAID'])
+Command(cat_repeat_fasta, [minced_repeat_fasta, pilercr_repeat_fasta], 'cat $SOURCES > $TARGET')
+#------------------------------------------------------------------------------
+#BLASTN concatenated CRISPR repeats against CRISPR repeat database
+PROGRAM_OPTIONS.blastn_opts['-db'] = database_env['CRISPRDB']
+
+blastn_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.blastn_opts)
+
+blastn_action = 'blastn %s' % blastn_optstring
+
+blastn_output = os.path.join(pipeline_env['OUTROOT'], 'crispr/crispr_repeat_blastn_results.txt' % pipeline_env['FASTAID'])
+
+Command(blastn_output, cat_repeat_fasta, blastn_action)
+#------------------------------------------------------------------------------
+#Get the best hits from BLASTN results
+blastn_besthit = os.path.join(pipeline_env['OUTROOT'], 'crispr/crispr_repeat_blastn_results_besthit.txt' % pipeline_env['FASTAID'])
+pipeline_env.BlastBestHit(blastn_besthit, blastn_output)
+#------------------------------------------------------------------------------
+Export('crispr_env')
+#------------------------------------------------------------------------------
+#SConscript('alignment/SConscript', exports = ['crispr_env', 'database_env'])

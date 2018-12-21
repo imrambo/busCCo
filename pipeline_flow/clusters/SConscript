@@ -1,0 +1,34 @@
+Import('pipeline_env')
+Import('crispr_env')
+Import('gene_env')
+import os
+import re
+from Bio import SeqIO
+from Bio import AlignIO
+from gff3_parser import gff3_parser
+
+"""
+Extract gene clusters for putative CRISPR-Cas systems to be analyzed with
+jackhmmer.
+"""
+#------------------------------------------------------------------------------
+import gff3_parser
+#------------------------------------------------------------------------------
+if list(set([os.path.exists(x) and os.path.getsize(x) > 0 for x in crispr_env['MINCED_OUT'] + crispr_env['PILERCR_OUT']]))[0]:
+    pass
+"""
+Stuff to use:
+
+gene_env['PRODIGALOPTS']['-o']
+gene_env['PRODIGALOPTS']['-a']
+crispr_env['PILERCR_OUT']
+crispr_env['MINCED_OUT']
+gene_env['CAS1_JH_BH']
+
+pipeline_env['CAS1']
+pipeline_env['CRISPR']
+"""
+
+
+prodigal_dict = gff3_parser(gff_file = gene_env['PRODIGALOPTS']['-o'], program = 'prodigal')
+minced_dict = gff3_parser(gff_file = [x for x in crispr_env['MINCED_OUT'] if x.endswith('.gff')][0], program = 'minced')

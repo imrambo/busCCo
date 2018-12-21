@@ -1,0 +1,13 @@
+Import('gene_env')
+"""
+Predict genes with Prodigal
+
+-------------------------------------------------------------------------------
+Ian Rambo
+Thirteen... that's a mighty unlucky number... for somebody!
+"""
+
+#prodigal_targets = [gene_env['PRODIGALOPTS']['-o'], gene_env['PRODIGALOPTS']['-a']]
+#prodigal_sources = [gene_env['PRODIGALOPTS']['-i']]
+prodigal_targets = [os.path.join(gene_env['PRODIGAL'], pipeline_env['FASTAID'] + '_prodigal.%s' % suffix) for suffix in ['gff', 'faa']]
+gene_env.Prodigal(prodigal_targets, pipeline_env['FASTA'])

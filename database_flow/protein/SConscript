@@ -1,0 +1,149 @@
+"""
+Ian Rambo
+Build HMMs from corresponding Multiple Sequence Alignments.
+"""
+#------------------------------------------------------------------------------
+#Create or load dictionary for corresponding multiple sequence alignment paths
+dict_pickle = os.path.join(database_env['SRCDIR'], 'msa_source_paths.p')
+#Command(dict_pickle, database_env['DBFILE'], 'python3 %s/msa_path_dict.py --input $SOURCE --output $TARGET --search_dir %s --extension %s' % (os.getcwd(), database_env['MSACURDIR'], 'FASTA'))
+msa_path_dict = {}
+if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
+    print('msa path dictionary exists, loading pickle object %s...' % dict_pickle)
+    msa_paths_dict = pickle.load( open( dict_pickle, 'rb' ) )
+else:
+    msa_paths_dict = build_path_dict(file_table = database_env['DBFILE'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
+    pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
+#------------------------------------------------------------------------------
+###---OPTIONS FOR HMMBUILD---###
+#hmmbuild_opts = {'--cpu':2, '--seed':42}
+
+# ###---OPTIONS FOR RAXML---###
+# raxml_opts = None
+# if database_env['TREEFLAG']:
+#     raxml_opts = {'-s':'$SOURCE', '-K':'GTR', '-m':'PROTGAMMAAUTO',
+#     '-T':'10', '-f':'a', '-N':'autoMRE', '-x':'7', '-p':'7'}
+# else:
+#     pass
+###-----------------------###
+#File containing paths to built HMM profiles
+hmm_pathfile = open(os.path.join(database_env['SRCDIR'], 'hmm_paths.txt'), 'w')
+#File containing paths to combined MSAs
+msa_pathfile = open(os.path.join(database_env['SRCDIR'], 'msa_paths.txt'), 'w')
+###============================================================================
+#Create merged alignments from curated MSAs and build HMM profiles
+for profile_id, msap in msa_paths_dict.items():
+    Progress('Evaluating $TARGET\n')
+
+    ###---Multiple Sequence Alignments and HMM building---###
+    msap = [i for i in msap if i != 'NA']
+    if msap:
+        profile_id = profile_id.replace('\"', '')
+        hmm_out = os.path.join(database_env['HMMDIR'], '%s.hmm' % profile_id)
+        hmmbuild_opts['-n'] = profile_id
+        hmmbuild_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.hmmbuild_opts)
+        hmmbuild_action = 'hmmbuild %s $TARGET $SOURCE' % hmmbuild_optstring
+
+        ali_phylip = None
+
+        if len(msap) == 1:
+            #ali_fasta_uniq = os.path.join(database_env['ALIGNDIR'], '%s.fasta' % k)
+            #ali_stock_uniq = os.path.splitext(ali_fasta_uniq)[0] + '.stockholm'
+            #database_env.FastaUniq(ali_fasta_uniq, v[0])
+            #database_env.MSAFormat(ali_stock_uniq, ali_fasta_uniq)
+            #ali_stock = os.path.join(database_env['ALIGNDIR'], os.path.splitext(os.path.basename(ali_fasta))[0] + '.stockholm')
+
+            ali_fasta = os.path.join(database_env['ALIGNDIR'], profile_id + '.afasta')
+            ali_stock = os.path.join(database_env['ALIGNDIR'], profile_id + '.stockholm')
+            ali_phylip = os.path.join(database_env['ALIGNDIR'], profile_id + '.rphylip')
+
+            #Get FASTA alignment with unique headers
+            database_env.FastaUniqHeader(ali_fasta, msap[0])
+            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+
+            database_env.Command(hmm_out, ali_stock, hmmbuild_action)
+            #Build the HMM
+            hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+            msa_pathfile.write(os.path.abspath(ali_fasta_cp) + '\n' + os.path.abspath(ali_stock) + '\n')
+
+        elif len(msap) == 2:
+            #Merge the two multiple sequence alignments
+            ali_fasta_tmp = os.path.join(database_env['TMPDIR'], profile_id + '.tmp.afasta')
+            ali_fasta = os.path.join(database_env['ALIGNDIR'], profile_id + '.afasta')
+            ali_stock = os.path.join(database_env['ALIGNDIR'], profile_id + '.stockholm')
+            ali_phylip = os.path.join(database_env['ALIGNDIR'], profile_id + '.rphylip')
+            #database_env.MafftAdd(ali_fasta_tmp, v)
+
+            #Combine MSAs and get the Multi-FASTA with unique headers
+            database_env.MusclePP(ali_fasta_tmp, msap)
+            database_env.FastaUniqHeader(ali_fasta, ali_fasta_tmp)
+            #Convert FASTA aligment to Stockholm and relaxed PHYLIP format
+            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+
+            #database_env.MSAFormat(ali_stock, ali_fasta)
+            database_env.Command(hmm_out, ali_stock, hmmbuild_action)
+            #Build the HMM
+            hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+            msa_pathfile.write(os.path.abspath(ali_fasta) + '\n' + os.path.abspath(ali_stock) + '\n' + os.path.abspath(ali_phylip) + '\n')
+
+        else:
+            #If 3+ multiple sequence alignments, iteratively merge them
+            ali_init = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (profile_id, 1))
+            database_env.MafftAdd(ali_init, [msap[0], msap[1]])
+            ali_fasta_tmp = str()
+            for i in range(2, len(msap)):
+                add_ali = msap[i]
+                ext_ali = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (profile_id, i-1))
+                ali_fasta_tmp = os.path.join(database_env['TMPDIR'], '%s_v%d.fasta' % (profile_id, i))
+                #database_env.MafftAdd(ali_fasta_tmp, [add_ali, ext_ali])
+                database_env.MusclePP(ali_fasta_tmp, [add_ali, ext_ali])
+
+            ali_fasta = os.path.join(database_env['ALIGNDIR'], os.path.basename(ali_fasta_tmp))
+            ali_stock = os.path.splitext(ali_fasta)[0] + '.stockholm'
+            ali_phylip = os.path.splitext(ali_fasta)[0] + '.rphylip'
+
+
+            #Get FASTA alignment with unique headers
+            database_env.FastaUniqHeader(ali_fasta, ali_fasta_tmp)
+
+            #Convert FASTA aligment to Stockholm and relaxed PHYLIP format
+            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+            msa_pathfile.write(os.path.abspath(ali_fasta) + '\n' + os.path.abspath(ali_stock) + '\n' + os.path.abspath(ali_phylip) + '\n')
+
+            #Build the HMM
+            hmm_out = os.path.join(database_env['HMMDIR'], os.path.splitext(os.path.basename(ali_stock_uniq))[0] + '.hmm')
+            database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
+            hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+
+        ###---If TREEFLAG == True, build RAxML tree---###
+        if database_env['TREEFLAG'] and ali_phylip:
+            ###---Set targets for RAxML---###
+            raxml_targets = ['RAxML_' + x + profile_id for x in ['bestTree','bipartitionsBranchLabels','bootstrap','bipartitions']]
+            for r in raxml_targets:
+                DEFAULT_TARGETS.append(r)
+            """
+            RAxML action for MSA profile.
+            """
+            PROGRAM_OPTIONS.raxml_opts['-n'] = profile_id
+            raxml_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.raxml_opts)
+            raxml_action = 'raxmlHPC-PTHREADS-AVX %s' % raxml_optstring
+            Command(raxml_targets, ali_phylip, raxml_action)
+
+            #raxml_builder = Builder(action = raxml_action)
+            #database_env['BUILDERS']['RAXML'] = raxml_builder
+            #Run RAxML
+            #database_env.RAXML(raxml_targets, ali_phylip)
+
+        else:
+            pass
+
+    else:
+        pass
+#------------------------------------------------------------------------------
+hmm_pathfile.close()
+msa_pathfile.close()
+#------------------------------------------------------------------------------
+#Clear out the tmp directory
+Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
