@@ -18,7 +18,7 @@ hmmsearch_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.hmmsearch_o
 
 hmmsearch_action = 'hmmsearch %s --domtblout ${TARGETS[0]} --tblout ${TARGETS[1]} -o ${TARGETS[2]} $SOURCES' % hmmsearch_optstring
 
-gene_env.Replace(HS_CAS1INIT=os.path.join(gene_env['HMMSEARCH'], 'cas1_init'))
+gene_env.Replace(HS_CAS1INIT = os.path.join(gene_env['HMMSEARCH'], 'cas1_init'))
 #------------------------------------------------------------------------------
 ###---Initial Cas1 hmmsearch to find island anchor---###
 VariantDir(gene_env['HS_CAS1INIT'], [gene_env['PRODIGAL'], pipeline_env['SRCDIR']], duplicate = 0)
@@ -43,31 +43,62 @@ Command(cas1_domtbl_hits, Glob(os.path.join(gene_env['HS_CAS1INIT'], '*.domtbl')
 #------------------------------------------------------------------------------
 cas1_hit_pickle = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict.p')
 Depends(cas1_hit_pickle, cas1_domtbl_hits)
-Command(cas1_hit_pickle, cas1_domtbl_hits, 'python %s/hmmsearch_domtbl_dict.py --input $SOURCE --output $TARGET' % os.getcwd())
+pipeline_env.DomPickleDict(cas1_hit_pickle, cas1_domtbl_hits)
+#------------------------------------------------------------------------------
+def hmmsearch_hit_seqs(targets, sources, env):
+    hit_dict = pickle.load( open( sources[0], 'rb' ) )
+    seq_dict = SeqIO.to_dict(SeqIO.parse(sources[1]), 'fasta')
+    if any(hit_dict):
+        pipeline_env['CAS1'] = 1
+        for hmmname, subdict in hit_dict.items():
+            tmp_faa = os.path.join(pipeline_env['TMPDIR'], '%s_%s.faa' % (pipeline_env['FASTAID'], hmmname))
+            targets[1].append(tmp_faa)
+            with open(tmp_faa, 'w') as tfa:
+                seq_objs = [seq_dict[v] for v in subdict['target_ids']]
+                SeqIO.write(seq_objs, tfa, 'fasta')
+            hit_dict[hmmname]['tmp_faa'] = os.path.abspath(tmp_faa)
+            hmmpath = os.path.join(database_env['HMMDIR'], hmmname + '.hmm')
+            if os.path.exists(hmmpath) and os.path.getsize(hmmpath) > 0:
+                hit_dict[hmmname]['hmm_path'] = os.path.join(database_env['HMMDIR'], hmmname + '.hmm')
+            else:
+                hit_dict[hmmname]['hmm_path'] = ''
 
-"""
-WRITE A BUILDER FOR THIS SUMBITCH
-"""
+        pickle.dump( hit_dict, open( target, 'wb' ) )
+        return None
 
-if os.path.exists(cas1_domtbl_hits) and os.path.getsize(cas1_domtbl_hits) > 0:
-    pipeline_env.Replace(CAS1=1) ###-pipeline flag for island anchor; use Cas1
-    cas1_hit_dict = pickle.load( open( cas1_hit_pickle, 'rb' ) )
-    amino_seq_dict = SeqIO.to_dict(SeqIO.parse(os.path.abspath(gene_env['PRODIGALOPTS']['-a']), 'fasta'))
-    #Write the amino acid sequences for hits to FASTA files in TMPDIR
-    for key, subdict in cas1_hit_dict.items():
-        tmp_faa = os.path.join(pipeline_env['TMPDIR'], '%s_%s.faa' % (pipeline_env['FASTAID'], key))
-        with open(tmp_faa, 'w') as tfa:
-            seq_objs = [amino_seq_dict[v] for v in subdict['target_ids']]
-            SeqIO.write(seq_objs, tfa, 'fasta')
-        cas1_hit_dict[key]['tmp_faa'] = os.path.abspath(tmp_faa)
-        cas1_hit_dict[key]['hmm_path'] = [os.path.abspath(x) for x in cas1_hmm_paths if key in os.path.basename(x)][0]
-    gene_env.Replace(HS_CAS1INIT_DICT=cas1_hit_dict)
-else:
-    pass
+    else:
+        return
+#------------------------------------------------------------------------------
+gene_env['BUILDERS']['HmmsearchSeqs'] = Builder(action = [hmmsearch_hit_seqs, Delete('${SOURCES[0]}')])
 
+gene_env.HmmsearchSeqs([cas1_hit_pickle_updated, []], [cas1_hit_pickle, gene_env['PRODIGALOPTS']['-a']])
+
+gene_env.Replace(HS_CAS1INIT_DICT = pickle.load( open( cas1_hit_pickle_updated, 'rb' ) ))
 #------------------------------------------------------------------------------
 Export(['gene_env', 'pipeline_env'])
 #------------------------------------------------------------------------------
+#Command(cas1_hit_pickle, cas1_domtbl_hits, 'python %s/hmmsearch_domtbl_dict.py --input $SOURCE --output $TARGET' % os.getcwd())
+
+# """
+# WRITE A BUILDER FOR THIS SUMBITCH
+# """
+# if os.path.exists(cas1_domtbl_hits) and os.path.getsize(cas1_domtbl_hits) > 0:
+#     pipeline_env.Replace(CAS1=1) ###-pipeline flag for island anchor; use Cas1
+#     cas1_hit_dict = pickle.load( open( cas1_hit_pickle, 'rb' ) )
+#     amino_seq_dict = SeqIO.to_dict(SeqIO.parse(os.path.abspath(gene_env['PRODIGALOPTS']['-a']), 'fasta'))
+#     #Write the amino acid sequences for hits to FASTA files in TMPDIR
+#     for key, subdict in cas1_hit_dict.items():
+#         tmp_faa = os.path.join(pipeline_env['TMPDIR'], '%s_%s.faa' % (pipeline_env['FASTAID'], key))
+#         with open(tmp_faa, 'w') as tfa:
+#             seq_objs = [amino_seq_dict[v] for v in subdict['target_ids']]
+#             SeqIO.write(seq_objs, tfa, 'fasta')
+#         cas1_hit_dict[key]['tmp_faa'] = os.path.abspath(tmp_faa)
+#         cas1_hit_dict[key]['hmm_path'] = [os.path.abspath(x) for x in cas1_hmm_paths if key in os.path.basename(x)][0]
+#     gene_env.Replace(HS_CAS1INIT_DICT=cas1_hit_dict)
+# else:
+#     pass
+
+#==============================================================================
 ###---BONEYARD---###
 # def domtbl_seqs_build(targets, sources, env):
 #     #targets = [pickle, tmp_faa]

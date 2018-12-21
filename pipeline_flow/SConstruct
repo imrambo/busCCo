@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath('../scripts'))
 
 from besthit import domtbl_besthits, blast_besthits
 from gff3_parser import gff3_parser
+from domtbl_dict import domtbl_pickledict_build
 import PROGRAM_OPTIONS
 
 EnsurePythonVersion(3, 5)
@@ -29,17 +30,19 @@ if pipeline_env['FASTAID'] is None:
 else:
     pass
 
-pipeline_env.Replace(OUTROOT=os.path.abspath('output/%s' % pipeline_env['FASTAID']),
-SRCDIR=os.path.abspath('../src'),
-TMPDIR=os.path.abspath('../tmp'),
-CAS1=0,
-CRISPR=0)
+pipeline_env.Replace(OUTROOT = os.path.abspath('output/%s' % pipeline_env['FASTAID']),
+SRCDIR = os.path.abspath('../src'),
+TMPDIR = os.path.abspath('../tmp'),
+CAS1 = 0,
+CRISPR = 0)
 #------------------------------------------------------------------------------
 prodigal_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.prodigal_opts)
 prodigal_action = 'prodigal %s' % prodigal_optstring
 
 prodigal_build = Builder(action = prodigal_action)
 #------------------------------------------------------------------------------
+domtbl_pickledict_builder = Builder(action = domtbl_pickledict_build)
+
 #Builder to get best hits from HMMER domtbl output (protein search only)
 domtbl_besthit_builder = Builder(action = domtbl_besthits)
 
@@ -47,7 +50,7 @@ domtbl_besthit_builder = Builder(action = domtbl_besthits)
 blast_besthit_builder = Builder(action = blast_besthits)
 
 builders = {'BlastBestHit':blast_besthit_builder, 'Prodigal':prodigal_build,
-'DomBestHit':domtbl_besthit_builder}
+'DomBestHit':domtbl_besthit_builder, 'DomPickleDict':domtbl_pickledict_builder}
 #------------------------------------------------------------------------------
 pipeline_env.Append(BUILDERS = builders)
 
