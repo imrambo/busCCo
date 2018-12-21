@@ -42,7 +42,9 @@ gethit_action = "grep -hve '^\#' $SOURCES > $TARGET"
 Command(cas1_domtbl_hits, Glob(os.path.join(gene_env['HS_CAS1INIT'], '*.domtbl')), gethit_action)
 #------------------------------------------------------------------------------
 cas1_hit_pickle = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict.p')
+
 Depends(cas1_hit_pickle, cas1_domtbl_hits)
+
 pipeline_env.DomPickleDict(cas1_hit_pickle, cas1_domtbl_hits)
 #------------------------------------------------------------------------------
 def hmmsearch_hit_seqs(targets, sources, env):
@@ -71,9 +73,11 @@ def hmmsearch_hit_seqs(targets, sources, env):
 #------------------------------------------------------------------------------
 gene_env['BUILDERS']['HmmsearchSeqs'] = Builder(action = [hmmsearch_hit_seqs, Delete('${SOURCES[0]}')])
 
+cas1_hit_pickle_updated = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict_updated.p')
+
 gene_env.HmmsearchSeqs([cas1_hit_pickle_updated, []], [cas1_hit_pickle, gene_env['PRODIGALOPTS']['-a']])
 
-gene_env.Replace(HS_CAS1INIT_DICT = pickle.load( open( cas1_hit_pickle_updated, 'rb' ) ))
+gene_env.Replace(HS_CAS1INIT_DICT = cas1_hit_pickle_updated)
 #------------------------------------------------------------------------------
 Export(['gene_env', 'pipeline_env'])
 #------------------------------------------------------------------------------

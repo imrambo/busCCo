@@ -11,7 +11,7 @@ VariantDir(gene_env['JH_CAS1INIT'], [gene_env['HS_CAS1INIT'], pipeline_env['TMPD
 # jackhmmer_opts = {'--mx':'BLOSUM62', '-E':1e-20, '--domE':1e-20, '-N':20,
 # '--incE':1e-20, '--incdomE':1e-20, '--F1':0.01, '--seed':42, '--cpu':4,
 # '--noali':''}
-hs_cas1init_dict = pickle.load( () )
+gene_env.Replace(HS_CAS1INIT_DICT = pickle.load( open( gene_env['HS_CAS1INIT_DICT'], 'rb' ) ))
 
 gene_env.Replace(JACKHMMEROPTS = PROGRAM_OPTIONS.jackhmmer_opts)
 #------------------------------------------------------------------------------
