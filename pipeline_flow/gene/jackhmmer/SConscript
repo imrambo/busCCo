@@ -1,60 +1,57 @@
-Import('gene_env')
 Import('pipeline_env')
 import os
 import re
 from Bio import SeqIO
-#import domtbl_besthit
+import pandas as pd
 #------------------------------------------------------------------------------
-gene_env.Replace(JH_CAS1INIT=os.path.join(gene_env['JACKHMMER'], 'cas1_init'))
-VariantDir(gene_env['JH_CAS1INIT'], [gene_env['HS_CAS1INIT'], pipeline_env['TMPDIR']], duplicate = 0)
-
-# jackhmmer_opts = {'--mx':'BLOSUM62', '-E':1e-20, '--domE':1e-20, '-N':20,
-# '--incE':1e-20, '--incdomE':1e-20, '--F1':0.01, '--seed':42, '--cpu':4,
-# '--noali':''}
-gene_env.Replace(HS_CAS1INIT_DICT = pickle.load( open( gene_env['HS_CAS1INIT_DICT'], 'rb' ) ))
-
-gene_env.Replace(JACKHMMEROPTS = PROGRAM_OPTIONS.jackhmmer_opts)
-#------------------------------------------------------------------------------
-#Builder for jackhmmer domain table best hits
-#domtbl_besthit_action = 'python3.5 %s/domtbl_besthit.py --input $SOURCE --output $TARGET' % os.getcwd()
-#besthit_builder = Builder(action = domtbl_besthit_action)
-#gene_env['BUILDERS']['DomtblBH'] = besthit_builder
+#pipeline_env.Replace(JH_CAS1INIT=os.path.join(pipeline_env['JACKHMMER'], 'cas1_init'))
+VariantDir(pipeline_env['JH_CAS1INIT'], [pipeline_env['HS_CAS1INIT'], pipeline_env['TMPDIR']], duplicate = 0)
 #------------------------------------------------------------------------------
 ###---jackhmmer search to verify initial Cas1 hmmsearch results---###
-if pipeline_env['CAS1'] == 1:
-    print('Performing initial Cas1 jackhmmer search')
-    cas1_stock_paths = []
-    with open(os.path.join(pipeline_env['SRCDIR'], 'msa_paths.txt'), 'r') as mpaths:
-        for m in mpaths:
-            m = m.rstrip()
-            if re.match(r'(\w+--.*?--\w+).*?\.stockholm$', os.path.basename(m)) and re.findall(r'(\w+--.*?--cd\d+).*?\.stockholm$', os.path.basename(m))[0] in gene_env['HS_CAS1INIT_DICT']:
-                cas1_stock_paths.append(m)
-            else:
-                pass
-    cas1_stock_paths = list(set(cas1_stock_paths))
-    for csp in cas1_stock_paths:
-        key = re.findall(r'(\w+--.*?--[A-Za-z]+\d+).*?$', os.path.basename(csp))[0]
-        #Output alignment for final jackhmmer iteration
-        jh_ali_target = os.path.join(gene_env['JH_CAS1INIT'], '%s_jackhmmer.stockholm' % key)
-        jh_cas1_targets = [os.path.join(gene_env['JH_CAS1INIT'], key + i) for i in ['.domtbl', '.tbl', '.txt']]
-        jh_cas1_targets.insert(0, jh_ali_target)
-        jackhmmer_optstring = PROGRAM_OPTIONS.optstring_join(gene_env['JACKHMMEROPTS'])
-        jackhmmer_action = 'jackhmmer %s -A ${TARGETS[0]} --domtblout ${TARGETS[1]} --tblout ${TARGETS[2]} -o ${TARGETS[3]} $SOURCES' % jackhmmer_optstring
-        Command(jh_cas1_targets, [csp, gene_env['HS_CAS1INIT_DICT'][key]['tmp_faa']], jackhmmer_action)
-
-    #Merge the jackhmmer domain table hits into a single file
-    cas1_jackhmmer_domhits = os.path.join(gene_env['JH_CAS1INIT'], 'cas1_init_allhits.txt')
-    gethit_action = 'grep -ve "^\#" $SOURCES | python %s/domtbl_format_hits.py > $TARGET' % pipeline_env['SCRIPTS']
-    Command(cas1_jackhmmer_domhits, Glob(os.path.join(gene_env['JH_CAS1INIT'], '*.domtbl')), gethit_action)
-
-    cas1_jackhmmer_besthit = os.path.join(gene_env['JH_CAS1INIT'], 'cas1_init_besthit.txt')
-    gene_env.DomBestHit(cas1_jackhmmer_besthit, cas1_jackhmmer_domhits)
-    gene_env['CAS1_JH_BH'] = cas1_jackhmmer_besthit
-
-elif pipeline_env['CAS1'] == 0:
-    print('No significant hits for initial Cas1 search.')
+#if DEFAULT_TARGETS and list(set([re.match(r'cas1--\.faa', os.path.basename(dt)) for dt in DEFAULT_TARGETS]))[0]:
+if DEFAULT_TARGETS and any([re.match(r'[Cc]as1--.*?\.faa', os.path.basename(dt)) for dt in DEFAULT_TARGETS])
+    pipeline_env['CAS1'] = 1
+else:
     pass
 
+if pipeline_env['CAS1'] == 1:
+
+    msa_paths = os.path.join(pipeline_env['SRCDIR'], 'msa_paths.txt')
+    msa_path_df = pd.read_csv(msa_paths, header = None,
+    comment = '#', names = ['path'])
+
+    cas1_stock_paths = [path for path in list(set(msa_path_df['path'].tolist())) if re.match(r'[Cc]as1--.*?--.*?\.stockholm', os.path.basename(path))]
+
+    cas1_outseq_df = os.path.join(pipeline_env['HS_CAS1INIT'], 'cas1_init_seqpaths.txt')
+    #Dataframe with output FASTA sequence file paths per HMM name
+    cas1_spdf = pd.read_csv(cas1_outseq_df, header = True, comment = '#')
+
+    jackhmmer_optstring = PROGRAM_OPTIONS.optstring_join(pipeline_env['JACKHMMEROPTS'])
+
+    for csp in cas1_stock_paths:
+        key = re.findall(r'(^.*?--.*?--.*?)\.stockholm$', os.path.basename(csp))[0]
+        #Output alignment for final jackhmmer iteration
+        jh_ali_target = os.path.join(pipeline_env['JH_CAS1INIT'], '%s_jackhmmer.stockholm' % key)
+
+        jh_cas1_targets = [os.path.join(pipeline_env['JH_CAS1INIT'], key + i) for i in ['.domtbl', '.tbl', '.txt']]
+        jh_cas1_targets.insert(0, jh_ali_target)
+
+        jackhmmer_action = 'jackhmmer %s -A ${TARGETS[0]} --domtblout ${TARGETS[1]} --tblout ${TARGETS[2]} -o ${TARGETS[3]} $SOURCES' % jackhmmer_optstring
+
+        sequence_file = cas1_spdf.sequence_file.where(cas1_spdf.query_name == key).max()
+        Command(jh_cas1_targets, [csp, sequence_file], jackhmmer_action)
+
+    #Merge the jackhmmer domain table hits into a single file
+    cas1_jackhmmer_domhits = os.path.join(pipeline_env['JH_CAS1INIT'], 'cas1_init_allhits.txt')
+    #Action will pull all the hits and includes the filename in the first col
+    gethit_action = 'grep -ve "^\#" $SOURCES | python %s/domtbl_format_hits.py > $TARGET' % pipeline_env['SCRIPTS']
+    Command(cas1_jackhmmer_domhits, Glob(os.path.join(pipeline_env['JH_CAS1INIT'], '*.domtbl')), gethit_action)
+    #Get the best hits
+    cas1_jackhmmer_besthit = os.path.join(pipeline_env['JH_CAS1INIT'], 'cas1_init_besthit.txt')
+    pipeline_env.DomBestHit(cas1_jackhmmer_besthit, cas1_jackhmmer_domhits)
+    pipeline_env['CAS1_JH_BH'] = cas1_jackhmmer_besthit
+
 else:
+    print('No hits for initial Cas1 search')
     pass
 #------------------------------------------------------------------------------

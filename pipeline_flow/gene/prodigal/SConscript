@@ -1,4 +1,6 @@
-Import('gene_env')
+import os
+#Import('gene_env')
+Import('pipeline_env')
 """
 Predict genes with Prodigal
 
@@ -6,8 +8,10 @@ Predict genes with Prodigal
 Ian Rambo
 Thirteen... that's a mighty unlucky number... for somebody!
 """
+prodigal_targets = [os.path.join(pipeline_env['PRODIGAL'], '%s_prodigal.%s' % (pipeline_env['FASTAID'], suffix)) for suffix in ['gff', 'faa']]
 
-#prodigal_targets = [gene_env['PRODIGALOPTS']['-o'], gene_env['PRODIGALOPTS']['-a']]
-#prodigal_sources = [gene_env['PRODIGALOPTS']['-i']]
-prodigal_targets = [os.path.join(gene_env['PRODIGAL'], pipeline_env['FASTAID'] + '_prodigal.%s' % suffix) for suffix in ['gff', 'faa']]
-gene_env.Prodigal(prodigal_targets, pipeline_env['FASTA'])
+pipeline_env.Prodigal(prodigal_targets, pipeline_env['FASTA'])
+
+pipeline_env['PRODIGALOPTS']['-o'] = prodigal_targets[0]
+pipeline_env['PRODIGALOPTS']['-a'] = prodigal_targets[1]
+pipeline_env['PRODIGALOPTS']['-d'] = prodigal_targets[2]

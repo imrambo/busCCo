@@ -1,34 +1,84 @@
-Import('pipeline_env')
-Import('crispr_env')
-Import('gene_env')
-import os
-import re
-from Bio import SeqIO
-from Bio import AlignIO
-from gff3_parser import gff3_parser
+# Import('pipeline_env')
+# Import('crispr_env')
+# Import('gene_env')
+# import os
+# import re
+# from Bio import SeqIO
+# from Bio import AlignIO
+# from gff3_parser import gff3_parser
+#
+# """
+# Extract gene clusters for putative CRISPR-Cas systems to be analyzed with
+# jackhmmer.
+# """
+# #------------------------------------------------------------------------------
+# import gff3_parser
+# #------------------------------------------------------------------------------
+# if list(set([os.path.exists(x) and os.path.getsize(x) > 0 for x in crispr_env['MINCED_OUT'] + crispr_env['PILERCR_OUT']]))[0]:
+#     pass
+# """
+# Stuff to use:
+#
+# gene_env['PRODIGALOPTS']['-o']
+# gene_env['PRODIGALOPTS']['-a']
+# crispr_env['PILERCR_OUT']
+# crispr_env['MINCED_OUT']
+# gene_env['CAS1_JH_BH']
+#
+# pipeline_env['CAS1']
+# pipeline_env['CRISPR']
+# """
+#
+#
+# prodigal_dict = gff3_parser(gff_file = gene_env['PRODIGALOPTS']['-o'], program = 'prodigal')
+# minced_dict = gff3_parser(gff_file = [x for x in crispr_env['MINCED_OUT'] if x.endswith('.gff')][0], program = 'minced')
 
-"""
-Extract gene clusters for putative CRISPR-Cas systems to be analyzed with
-jackhmmer.
-"""
-#------------------------------------------------------------------------------
-import gff3_parser
-#------------------------------------------------------------------------------
-if list(set([os.path.exists(x) and os.path.getsize(x) > 0 for x in crispr_env['MINCED_OUT'] + crispr_env['PILERCR_OUT']]))[0]:
-    pass
-"""
-Stuff to use:
 
-gene_env['PRODIGALOPTS']['-o']
-gene_env['PRODIGALOPTS']['-a']
-crispr_env['PILERCR_OUT']
-crispr_env['MINCED_OUT']
-gene_env['CAS1_JH_BH']
+'''
 
-pipeline_env['CAS1']
-pipeline_env['CRISPR']
-"""
+prodigal_nuc_dict = SeqIO.to_dict(SeqIO.parse(pipeline_env['PRODIGALOPTS']['-a'], 'fasta'))
 
 
-prodigal_dict = gff3_parser(gff_file = gene_env['PRODIGALOPTS']['-o'], program = 'prodigal')
-minced_dict = gff3_parser(gff_file = [x for x in crispr_env['MINCED_OUT'] if x.endswith('.gff')][0], program = 'minced')
+
+prodigal_gff_dict = gff_parser(pipeline_env['PRODIGALOPTS']['-o'])
+
+prodigal_df = pd.DataFrame.from_dict({(i,j): prodigal_gff_dict[i][j]
+                           for i in user_dict.keys()
+                           for j in user_dict[i].keys()},
+                       orient='index')
+
+
+prodigal_gff_df = pd.DataFrame(pipeline_env['PRODIGALOPTS']['-o'], comment='#')
+
+cas1_jh_df= pd.read_csv(pipeline_env['CAS1_JH_BH'], comment='#', header=None,
+    names = ['query_alignment_name','target_name','target_accession',
+    'target_len','query_name','accession','query_length','evalue_sequence',
+    'bitscore_sequence','bias','domain_number','n_domains','evalue_conditional',
+    'evalue_independ','bitscore_domain','bias_domain','hmm_from','hmm_to',
+    'ali_from','ali_to','env_from','env_to','acc','target_desc'], sep = '\s+')
+
+prodigal_df['gene_length'] = prodigal_df['end'] - prodigal_df['start']
+
+
+overlap_pct = 0.60
+
+#prodigal_df['end'] > cas1_coord - extent and cas1_coord - extent >= prodigal_df['end'] - (overlap_pct * (prodigal_df['gene_length']) % prodigal_df['gene_length'])
+
+crispr_df =
+
+
+
+for target in list(set(cas1_jh_df['target_name'].tolist())):
+    subset = prodigal_df[prodigal_df['target_name'] == target].sort_values(by = ['start'])
+    subset = prodigal_df[prodigal_df[prodigal_df['start'] <= cas1_coord + extent & cas1_coord + extent <= prodigal_df['start'] + (overlap_pct * (prodigal_df['gene_length'])) & prodigal_df['end'] > cas1_coord - extent & cas1_coord - extent >= prodigal_df['end'] - (overlap_pct * prodigal_df['gene_length'])]]
+
+'''
+
+
+    #sequence_list = [str(seq_dict[x].seq) for x in subset['target_name'].tolist()]
+
+
+    #SeqIO.write(seqobjs, sf, 'fasta')
+'''
+cas1_coord = prodigal_nuc_dict.start(wh)[]
+'''

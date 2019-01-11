@@ -1,11 +1,41 @@
+#==============================================================================
+Help("""
+-------------------------------------------------------------------------------
+busCCo v1.0.0
+Ian Maguire Rambo
+-------------------------------------------------------------------------------
+Pipeline Flow
+
+Usage: 'scons-3.0.1 --fasta=</path/to/nucleotide/fasta> --prefix_id<the identifier for this file> --outdir_root=</path/to/root/output>
+
+Purpose: Mine CRISPR-Cas systems from genomic and metagenomic sequence data.
+
+The pipeline only requires you to specify the path of a nucleotide FASTA file
+as input. The --prefix_id can be specified for your output files, otherwise the
+input file name will be used.
+
+An output directory with your --prefix_id will be created in --outdir_root,
+and will store your output for a particular FASTA file.
+
+If you want to analyze multiple FASTA files in parallel, I recommend using the
+excellent gnu parallel tool, available at: https://www.gnu.org/software/parallel/
+
+The parameters used for command line tool options can be adjusted in
+scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
+option does not have a value, use a blank string '' .
+
+Questions or found a bug? Message me at: ian.rambo@utexas.edu
+""", append = True)
+
+#==============================================================================
 import os
 import sys
-
+import re
 #Add scripts directory to path
 sys.path.insert(0, os.path.abspath('../scripts'))
 
 from besthit import domtbl_besthits, blast_besthits
-from gff3_parser import gff3_parser
+from gff3_parser import *
 from domtbl_dict import domtbl_pickledict_build
 import PROGRAM_OPTIONS
 
@@ -15,32 +45,109 @@ EnsureSConsVersion(3, 0, 1)
 ###---Command line options---###
 AddOption('--fasta', dest='fasta', type='string', nargs=1,
 action='store', help='input FASTA file path')
-AddOption('--prefix_id', dest ='prefix_id', type='string', nargs=1,
-action='store', default=None,
+AddOption('--prefix_id', dest = 'prefix_id', type = 'string', nargs = 1,
+action = 'store', default = '',
 help='identifier for FASTA file. If nothing is supplied, the file basename is used')
-AddOption('--outdir_root', dest='outdir_root', type='string', nargs=1,
-action='store', help='path to root output directory')
+AddOption('--outdir_root', dest = 'outdir_root', type = 'string', nargs = 1,
+action = 'store', help = 'path to root output directory')
 
 pipeline_env = Environment(FASTA=GetOption('fasta'))
 pipeline_env.Replace(FASTAID=GetOption('prefix_id'))
 
 ###---If no prefix id is specified, use the name of the FASTA file
-if pipeline_env['FASTAID'] is None:
+if pipeline_env['FASTA'] and not pipeline_env['FASTAID']:
     pipeline_env.Replace(FASTAID = os.path.splitext(os.path.basename(pipeline_env['FASTA']))[0])
 else:
     pass
 
-pipeline_env.Replace(OUTROOT = os.path.abspath('output/%s' % pipeline_env['FASTAID']),
+pipeline_env.Replace(OUTROOT = GetOption('outdir_root'))
+pipeline_env.Replace(OUTROOT = os.path.join(pipeline_env['OUTROOT'], pipeline_env['FASTAID']),
 SRCDIR = os.path.abspath('../src'),
 TMPDIR = os.path.abspath('../tmp'),
+SCRIPTS = os.path.abspath('../scripts'),
 CAS1 = 0,
 CRISPR = 0)
+
+#Gene flow output directories
+outdirs = {}
+progs = ['prodigal','hmmsearch','jackhmmer']
+for p in progs:
+    outdirs[p] = os.path.join(pipeline_env['OUTROOT'], 'gene/%s' % p)
+
+pipeline_env.Replace(PRODIGAL=outdirs['prodigal'],
+HMMSEARCH=outdirs['hmmsearch'],
+JACKHMMER=outdirs['jackhmmer'],
+MINCED = os.path.join(pipeline_env['OUTROOT'], 'crispr/minced'),
+PILERCR = os.path.join(pipeline_env['OUTROOT'], 'crispr/pilercr'))
+
+#Initial Cas1 search directories
+pipeline_env.Replace(HS_CAS1INIT = os.path.join(pipeline_env['HMMSEARCH'], 'cas1_init'),
+JH_CAS1INIT=os.path.join(pipeline_env['JACKHMMER'], 'cas1_init'))
 #------------------------------------------------------------------------------
+pipeline_env.Replace(PRODIGALOPTS = PROGRAM_OPTIONS.prodigal_opts,
+HMMSEARCHOPTS = PROGRAM_OPTIONS.hmmsearch_opts,
+JACKHMMEROPTS = PROGRAM_OPTIONS.jackhmmer_opts)
+
+#==============================================================================
+def domtbl_seqfetch_build(target, sources, env):
+    """
+    Fetch FASTA sequences for HMMER domain table hits per target
+    and write to respective FASTA files.
+
+    Specify an output data frame for TARGET. This will contain the
+    query name and respective output FASTA file containing the target sequences.
+    """
+    from warnings import warn
+    import pandas as pd
+
+    try:
+        domdf = pd.read_csv(sources[0], comment = '#', header = None,
+        names = ['target_name','target_accession','target_len','query_name',
+        'accession','query_length','evalue_sequence','bitscore_sequence',
+        'bias_sequence','domain_number','n_domains','evalue_conditional',
+        'evalue_independ','bitscore_domain','bias_domain','hmm_from','hmm_to',
+        'ali_from','ali_to','env_from','env_to','acc','target_desc'], sep = '\s+')
+
+        domdf['sequence_file'] = '%s/%s/%s_' % (pipeline_env['TMPDIR'], pipeline_env['FASTAID'], pipeline_env['FASTAID']) + domdf['target_name'] + '.faa'
+
+        seq_files = list(set(domdf['sequence_file'].tolist()))
+
+        seq_dict = SeqIO.to_dict(SeqIO.parse(sources[1], 'fasta'))
+        for sfile in seqfiles:
+            #Default(sfile)
+            DEFAULT_TARGETS.append(sfile)
+            with open(sfile, 'w') as sf:
+                subset = domdf[domdf['sequence_file'] == seqfile]
+                seqobjs = [seq_dict[x] for x in subset['target_name'].tolist()]
+                SeqIO.write(seqobjs, sf, 'fasta')
+
+        #Subset data frame with sequence file path per HMM
+        domdf[['query_name', 'sequence_file']].to_csv(target, sep = '\t', encoding='utf-8', header = True, index = False)
+        return None
+
+    except:
+        warn('Warning: SOURCE domain table file is empty!')
+        return
+
+    return None
+
+domtbl_seqfetch_builder = Builder(action = domtbl_seqfetch_build)
+#------------------------------------------------------------------------------
+#Builder to extract CRISPR repeats from MinCED GFF3 output and write to FASTA
+minced_fasta_builder = Builder(action = minced_gff2fasta)
+#------------------------------------------------------------------------------
+#Builder to convert PilerCR report (summary by position) to GFF3 format
+pilercr_gff_builder = Builder(action = pilercr_report2gff)
+#==============================================================================
+###---Builders---###
+pipeline_env.Replace(PRODIGALOPTS = PROGRAM_OPTIONS.prodigal_opts)
+
 prodigal_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.prodigal_opts)
 prodigal_action = 'prodigal %s' % prodigal_optstring
 
-prodigal_build = Builder(action = prodigal_action)
+prodigal_builder = Builder(action = prodigal_action)
 #------------------------------------------------------------------------------
+#Create a pickle binary of a HMMER domain table
 domtbl_pickledict_builder = Builder(action = domtbl_pickledict_build)
 
 #Builder to get best hits from HMMER domtbl output (protein search only)
@@ -49,8 +156,10 @@ domtbl_besthit_builder = Builder(action = domtbl_besthits)
 #Builder to get best hits from BLAST+ alignment results
 blast_besthit_builder = Builder(action = blast_besthits)
 
-builders = {'BlastBestHit':blast_besthit_builder, 'Prodigal':prodigal_build,
-'DomBestHit':domtbl_besthit_builder, 'DomPickleDict':domtbl_pickledict_builder}
+builders = {'BlastBestHit':blast_besthit_builder, 'Prodigal':prodigal_builder,
+'DomBestHit':domtbl_besthit_builder, 'DomPickleDict':domtbl_pickledict_builder,
+'DomSeqFetch':domtbl_seqfetch_builder, 'MincedGFF2FASTA':minced_fasta_builder,
+'Pilercr2GFF':pilercr_gff_builder}
 #------------------------------------------------------------------------------
 pipeline_env.Append(BUILDERS = builders)
 

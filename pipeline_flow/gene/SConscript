@@ -1,4 +1,3 @@
-import os
 """
 Actions and Builders for CRISPR-Cas search pipeline.
 Initiate environment for gene annotation portion of CRISPR-Cas search pipeline.
@@ -10,41 +9,6 @@ Thirteen... that's a mighty unlucky number... for somebody!
 Import('pipeline_env')
 gene_env = pipeline_env.Clone()
 #------------------------------------------------------------------------------
-progs = ['prodigal','hmmsearch','jackhmmer']
-#Dictionary of output directories
-outdirs = {}
-for p in progs:
-    outdirs[p] = os.path.join(pipeline_env['OUTROOT'], 'gene/%s' % p)
-
-#Add output directories to the gene analysis environment
-gene_env.Replace(PRODIGAL=outdirs['prodigal'],
-HMMSEARCH=outdirs['hmmsearch'],
-JACKHMMER=outdirs['jackhmmer'])
-#------------------------------------------------------------------------------
-#Prodigal options and Builder
-# prodigal_opts = {'-i':pipeline_env['FASTA'], '-p':'single',
-# '-o':os.path.join(gene_env['PRODIGAL'], '%s_prodigal.gff' % pipeline_env['FASTAID']),
-# '-a':os.path.join(gene_env['PRODIGAL'], '%s_prodigal.faa' % pipeline_env['FASTAID']),
-# '-f':'gff', '-q':''}
-
-# prodigal_opts = {'-i':'$SOURCE', '-p':'single', '-o':'${TARGETS[0]}',
-# '-a':'${TARGETS[1]}', '-f':'gff', '-q':''}
-
-#gene_env.Replace(PRODIGALOPTS=prodigal_opts)
-gene_env.Replace(PRODIGALOPTS = PROGRAM_OPTIONS.prodigal_opts)
-# #prodigal_optstring = optstring_join(prodigal_opts)
-# prodigal_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.prodigal_opts)
-# prodigal_action = 'prodigal %s' % prodigal_optstring
-# #prodigal_action = 'prodigal -q -p %s -f %s -i $SOURCES -o ${TARGETS[0]} -a ${TARGETS[1]}' % (gene_env['PRODIGALOPTS']['-p'], gene_env['PRODIGALOPTS']['-f'])
-#
-# prodigal_build = Builder(action = prodigal_action)
-#------------------------------------------------------------------------------
-#Builder to get best hits from HMMER domtbl output (protein search only)
-#domtbl_besthit_builder = Builder(action = domtbl_besthits)
-#------------------------------------------------------------------------------
-#gene_builders = {'Prodigal':prodigal_build, 'DomBestHit':domtbl_besthit_builder}
-#------------------------------------------------------------------------------
-#gene_env.Append(BUILDERS = gene_builders)
 Export('gene_env')
 
 SConscript(['prodigal/SConscript', 'hmmsearch/SConscript', 'jackhmmer/SConscript'], exports = 'gene_env')

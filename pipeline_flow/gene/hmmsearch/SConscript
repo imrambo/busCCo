@@ -1,9 +1,10 @@
-Import('gene_env')
+#Import('gene_env')
 Import('pipeline_env')
 import os
 import re
 from Bio import SeqIO
 import pickle
+import PROGRAM_OPTIONS
 
 """
 Search profiles(s) against a sequence database with hmmsearch
@@ -12,16 +13,15 @@ Ian Rambo
 Thirteen... that's a mighty unlucky number... for somebody!
 """
 #------------------------------------------------------------------------------
-gene_env.Replace(HMMSEARCHOPTS = PROGRAM_OPTIONS.hmmsearch_opts)
-
-hmmsearch_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.hmmsearch_opts)
+hmmsearch_optstring = PROGRAM_OPTIONS.optstring_join(pipeline_env['HMMSEARCHOPTS'])
 
 hmmsearch_action = 'hmmsearch %s --domtblout ${TARGETS[0]} --tblout ${TARGETS[1]} -o ${TARGETS[2]} $SOURCES' % hmmsearch_optstring
 
-gene_env.Replace(HS_CAS1INIT = os.path.join(gene_env['HMMSEARCH'], 'cas1_init'))
+#gene_env.Replace(HS_CAS1INIT = os.path.join(gene_env['HMMSEARCH'], 'cas1_init'))
 #------------------------------------------------------------------------------
 ###---Initial Cas1 hmmsearch to find island anchor---###
-VariantDir(gene_env['HS_CAS1INIT'], [gene_env['PRODIGAL'], pipeline_env['SRCDIR']], duplicate = 0)
+#VariantDir(gene_env['HS_CAS1INIT'], [gene_env['PRODIGAL'], pipeline_env['SRCDIR']], duplicate = 0)
+VariantDir(pipeline_env['HS_CAS1INIT'], [pipeline_env['PRODIGAL'], pipeline_env['SRCDIR']], duplicate = 0)
 
 hmmpaths = []
 with open(os.path.join(pipeline_env['SRCDIR'], 'hmm_paths.txt'), 'r') as hpaths:
@@ -32,54 +32,42 @@ with open(os.path.join(pipeline_env['SRCDIR'], 'hmm_paths.txt'), 'r') as hpaths:
 cas1_hmm_paths = list(set([x for x in hmmpaths if re.match(r'cas1--', os.path.basename(x))]))
 for c in cas1_hmm_paths:
     cid = os.path.splitext(os.path.basename(c))[0]
-    cas1_output = [os.path.join(gene_env['HS_CAS1INIT'], cid + i) for i in ['.domtbl', '.tbl', '.txt']]
-    Command(cas1_output, [c, gene_env['PRODIGALOPTS']['-a']], hmmsearch_action)
+    cas1_output = [os.path.join(pipeline_env['HS_CAS1INIT'], cid + i) for i in ['.domtbl', '.tbl', '.txt']]
+    Command(cas1_output, [c, pipeline_env['PRODIGALOPTS']['-a']], hmmsearch_action)
 
 #gather significant hits into a single table
-cas1_domtbl_hits = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_domhits.txt')
-#gethit_action = "grep -hve '^\#' $SOURCES | awk '$7 <= %f && $13 <= %f' > $TARGET" % (gene_env['HMMSEARCHOPTS']['--incE'], gene_env['HMMSEARCHOPTS']['--incdomE'])
-gethit_action = "grep -hve '^\#' $SOURCES > $TARGET"
-Command(cas1_domtbl_hits, Glob(os.path.join(gene_env['HS_CAS1INIT'], '*.domtbl')), gethit_action)
+cas1_domtbl_hits = os.path.join(pipeline_env['HS_CAS1INIT'], 'cas1_init_domhits.txt')
+
+gethit_action = 'grep -ve "^\#" $SOURCES | python %s/domtbl_format_hits.py > $TARGET' % pipeline_env['SCRIPTS']
+
+Command(cas1_domtbl_hits, Glob(os.path.join(pipeline_env['HS_CAS1INIT'], '*.domtbl')), gethit_action)
+
+#get the best hit per target
+#best hit is based on e-value, bitscore, alignment length, and acc
+cas1_domtbl_besthits = os.path.join(pipeline_env['HS_CAS1INIT'], 'cas1_init_domhits.besthits')
+pipeline_env.DomBestHit(cas1_domtbl_besthits, cas1_domtbl_hits)
 #------------------------------------------------------------------------------
-cas1_hit_pickle = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict.p')
-
-Depends(cas1_hit_pickle, cas1_domtbl_hits)
-
-pipeline_env.DomPickleDict(cas1_hit_pickle, cas1_domtbl_hits)
+cas1_outseq_df = os.path.join(pipeline_env['HS_CAS1INIT'], 'cas1_init_seqpaths.txt')
+pipeline_env.DomSeqFetch(cas1_outseq_df, cas1_domtbl_besthits)
 #------------------------------------------------------------------------------
-def hmmsearch_hit_seqs(targets, sources, env):
-    hit_dict = pickle.load( open( sources[0], 'rb' ) )
-    seq_dict = SeqIO.to_dict(SeqIO.parse(sources[1]), 'fasta')
-    if any(hit_dict):
-        pipeline_env['CAS1'] = 1
-        for hmmname, subdict in hit_dict.items():
-            tmp_faa = os.path.join(pipeline_env['TMPDIR'], '%s_%s.faa' % (pipeline_env['FASTAID'], hmmname))
-            targets[1].append(tmp_faa)
-            with open(tmp_faa, 'w') as tfa:
-                seq_objs = [seq_dict[v] for v in subdict['target_ids']]
-                SeqIO.write(seq_objs, tfa, 'fasta')
-            hit_dict[hmmname]['tmp_faa'] = os.path.abspath(tmp_faa)
-            hmmpath = os.path.join(database_env['HMMDIR'], hmmname + '.hmm')
-            if os.path.exists(hmmpath) and os.path.getsize(hmmpath) > 0:
-                hit_dict[hmmname]['hmm_path'] = os.path.join(database_env['HMMDIR'], hmmname + '.hmm')
-            else:
-                hit_dict[hmmname]['hmm_path'] = ''
-
-        pickle.dump( hit_dict, open( target, 'wb' ) )
-        return None
-
-    else:
-        return
+#Save the best hits as a pickle binary
+# cas1_besthit_pickle = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict.p')
+#
+# Depends(cas1_besthit_pickle, cas1_domtbl_besthits)
+#
+# pipeline_env.DomPickleDict(cas1_besthit_pickle, cas1_domtbl_besthits)
 #------------------------------------------------------------------------------
-gene_env['BUILDERS']['HmmsearchSeqs'] = Builder(action = [hmmsearch_hit_seqs, Delete('${SOURCES[0]}')])
 
-cas1_hit_pickle_updated = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict_updated.p')
-
-gene_env.HmmsearchSeqs([cas1_hit_pickle_updated, []], [cas1_hit_pickle, gene_env['PRODIGALOPTS']['-a']])
-
-gene_env.Replace(HS_CAS1INIT_DICT = cas1_hit_pickle_updated)
 #------------------------------------------------------------------------------
-Export(['gene_env', 'pipeline_env'])
+# gene_env['BUILDERS']['HmmsearchGetSeqs'] = Builder(action = [hmmsearch_hit_seqs, Delete('${SOURCES[0]}')])
+#
+# cas1_hit_pickle_updated = os.path.join(gene_env['HS_CAS1INIT'], 'cas1_init_dict_updated.p')
+#
+# gene_env.HmmsearchGetSeqs([cas1_hit_pickle_updated, []], [cas1_hit_pickle, gene_env['PRODIGALOPTS']['-a']])
+#
+# gene_env.Replace(HS_CAS1INIT_DICT = cas1_hit_pickle_updated)
+# #------------------------------------------------------------------------------
+# Export(['gene_env', 'pipeline_env'])
 #------------------------------------------------------------------------------
 #Command(cas1_hit_pickle, cas1_domtbl_hits, 'python %s/hmmsearch_domtbl_dict.py --input $SOURCE --output $TARGET' % os.getcwd())
 
