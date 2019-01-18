@@ -79,3 +79,40 @@ def gff3_parser(gff_file, program='general'):
                     warnings.warn('no gff parsing method specified')
 
     return gff_dict
+#==============================================================================
+def pilercr_report2gff(target, source, env):
+    """
+    Parse the PilerCR report Summaries by Position and convert into GFF3 format.
+    """
+    with open(source, 'r') as pilercr, open(target, 'w') as pilercr_gff:
+        lines = pilercr.readlines()
+        linePos = [i for i,x in enumerate(lines) if x == 'SUMMARY BY POSITION\n'][0]
+        posSummary = ''.join(lines[linePos+1:])
+        posSummaryList = posSummary.split('>')
+        posSummaryList = [ps.split('\n') for ps in posSummaryList]
+        for ps in posSummaryList:
+            match = [p.lstrip() for p in ps if re.match(r'\s+\d+.*?\s+[\d+\s+]{5}[GATC]+', p) or re.match(r'^\S+$', p)]
+            if match:
+                matchLists = [m.split() for m in match[1:]]
+                gffRecords = ['\t'.join([match[0],'pilercr:1.06', 'repeat_region', m[2], str(int(m[2])+int(m[3])), m[4], '.', '.', 'ID=CRISPR%s;rpt_family=CRISPR;rpt_unit_seq=%s' % (m[0], m[-1])]) for m in matchLists]
+                for g in gffRecords:
+                    pilercr_gff.write(g + '\n')
+            else:
+                pass
+    return None
+
+#==============================================================================
+def minced_gff2fasta(target, source, env):
+    """
+    Write a FASTA file of CRISPR repeat sequences parsed from a
+    MinCED GFF3 output file.
+    """
+    import re
+    from gff3_parser import gff3_parser
+    minced_dict = gff3_parser(source, program = 'minced')
+    repeats = [('>%s|%s' % (subdict['seqid'], key), subdict['repeat_sequence']) for key, subdict in source if re.match(r'CRISPR\d+$', key)]
+    with open(target, 'w') as tout:
+        for r in repeats:
+            tout.write('%s\n%s\n' % (r[0], r[1]))
+    return None
+#==============================================================================

@@ -4,9 +4,9 @@ operating systems. The pipeline accepts a nucleotide FASTA file
 (https://en.wikipedia.org/wiki/FASTA_format). Currently, the pipeline
 is being built for individual bacterial or archaeal genomes,
 but will later be usable with metagenomic
-read data. 
+read data.
 
-It's in the development stage so don't try anything yet. 
+It's in the development stage so don't try anything yet.
 
 This pipeline is written in Python and utilizes SCons for reproducible builds and analyses.
 #---------------------------------
@@ -61,5 +61,3 @@ http://eddylab.org/software/hmmer/hmmer.org
 https://www.drive5.com/muscle/
 https://www.drive5.com/pilercr/
 https://github.com/hyattpd/Prodigal
-http://scons.org/
-

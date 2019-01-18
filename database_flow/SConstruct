@@ -1,10 +1,39 @@
 """
-Build hidden Markov model databases from multiple sequence alignments.
-
 -------------------------------------------------------------------------------
 Ian Rambo
 Thirteen... that's a mighty unlucky number... for somebody!
 """
+#==============================================================================
+Help("""
+-------------------------------------------------------------------------------
+busCCo v1.0.0
+Ian Maguire Rambo
+-------------------------------------------------------------------------------
+Database Flow
+
+#Usage: 'scons-3.0.1 --db_outdir=</path/to/database/outdir/root> --msa_dir=</path/to/msa/directory> --build_tree=<0/1> --tree_prog=<raxml/fastree>'
+Usage: 'scons-3.0.1 --msa_dir=</path/to/msa/directory> --build_tree=<0/1> --tree_prog=<raxml/fastree>'
+
+Purpose: Merge Multiple Sequence Alignments and build Hidden Markov Models.
+Build phylogenetic trees from Multiple Sequence Alignments (optional).
+
+You can specify whether you want to build trees with the --build_tree flag.
+Set to 0 (build trees; default) or 1 (build trees).
+If using --build_tree, you must also specify --tree_prog 'raxml' or 'fasttree'.
+
+The parameters used for command line tool options can be adjusted in
+scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
+option does not have a value, use a blank string '' .
+
+Questions or found a bug? Message me at: ian.rambo@utexas.edu
+
+Thanks for using busCCo!
+
+Peace,
+Rambo
+""", append = True)
+
+#==============================================================================
 EnsurePythonVersion(3, 5)
 EnsureSConsVersion(3, 0, 1)
 
@@ -18,119 +47,50 @@ import sys
 sys.path.insert(0, os.path.abspath('../scripts'))
 
 import PROGRAM_OPTIONS
+import alignment
 #==============================================================================
 ###---Command line options
-AddOption('--db_outdir', dest='db_outdir', type='string', nargs=1,
-action='store', help='root database output directory')
+# AddOption('--db_dir', dest='db_dir', type='string', nargs=1,
+# action='store', help='root database output directory', default = '.')
 
-AddOption('--msa_dir', dest='msa_dir', type='string', nargs=1,
-action='store', help='root directory containing multiple sequence alignments')
+AddOption('--msa_dir', dest = 'msa_dir', type = 'string', nargs = 1,
+action = 'store', help = 'root directory containing input multiple sequence alignments',
+default = '.')
 
-AddOption('--build_tree', dest='treeflag', type='bool', nargs=1,
-action='store', default=False,
-help='build trees of updated multiple sequence alignments with RAxML. State True or False; Default = False.')
+AddOption('--build_tree', dest='treeflag', type='int', nargs=1,
+action='store', default=0,
+help='build trees of MSAs with RAxML. State 1 or 0; Default = 0.')
 
+AddOption('--tree_prog', dest='treeprog', type='string', nargs=1,
+action = 'store', default='',
+help='program for phylogenetic trees. Choose "raxml" or "fasttree". Only used if --build_tree == 1.')
+#==============================================================================
 ###---Set environment
 database_env = Environment(SRCDIR=os.path.abspath('../src'),
-MSACURDIR = os.path.abspath(GetOption('msa_dir')),
-DBDIR = os.path.abspath(GetOption('db_outdir')),
+MSACURDIR = GetOption('msa_dir'),
+DBDIR = GetOption('db_dir'),
 SCRIPTS = os.path.abspath('../scripts'),
-TREEFLAG = GetOption('treeflag'))
+TREEFLAG = GetOption('treeflag'),
+TREEPROG = GetOption('treeprog'))
+
+#MSACURDIR = os.path.abspath(GetOption('msa_dir')),
+#DBDIR = os.path.abspath(GetOption('db_outdir')),
 
 database_env.Replace(DBFILE = os.path.join(database_env['SRCDIR'], 'CasProfilesMaster.txt'),
-HMMDIR = os.path.join(database_env['DBDIR'], 'gene/hmm'),
-ALIGNDIR = os.path.join(database_env['DBDIR'], 'gene/msa'),
+#HMMDIR = os.path.join(database_env['DBDIR'], 'gene/hmm'),
+#ALIGNDIR = os.path.join(database_env['DBDIR'], 'gene/msa'),
+HMMDIR = os.path.join(database_env['SRCDIR'], 'gene/hmm'),
+ALIGNDIR = os.path.join(database_env['SRCDIR'], 'gene/msa'),
 TMPDIR = os.path.abspath('../tmp'),
-CRISPR_REP = os.path.join(database_env['DBDIR'], 'crispr/repeat'))
+CRISPR_REP = os.path.join(database_env['DBDIR'], 'crispr/repeat'),
+TREEDIR = os.path.join(database_env['DBDIR'], 'trees'))
 
 VariantDir(database_env['TMPDIR'], database_env['MSACURDIR'], duplicate = 0)
 VariantDir(database_env['ALIGNDIR'], database_env['TMPDIR'], duplicate = 0)
 VariantDir(database_env['HMMDIR'], database_env['ALIGNDIR'], duplicate = 0)
-# ==============================================================================
-###---Functions.
-def find_re(pattern, path):
-    '''
-    Find files using a regular expression.
-    '''
-    result = []
-    for root, dirs, files in os.walk(path):
-        for name in files:
-            if re.match(pattern, name):
-                result.append(os.path.join(root, name))
-                #result.extend(os.path.join(root, name))
-    return result
-#------------------------------------------------------------------------------
-def build_path_dict(file_table, search_dirs, ext):
-    '''
-    Return a dictionary with paths for corresponding files
-    (e.g. HMM profiles from several databases for the same protein)
-    '''
-    path_dict = {}
-    with open(file_table, 'r') as ftbl:
-        ftbl.readline()
-        for c in ftbl:
-            cList = c.split('\t')
-            cdd = cList[0]
-            pfam = cList[1]
-            tigr = cList[2]
-            cog = cList[3]
-            function = cList[4]
-            gene = cList[5]
-            group = cList[6]
-            subtype = cList[7]
-            subtype = subtype.replace(',', '_')
-            id = '--'.join([gene, subtype, cdd])
-            dbPathList = []
-            for db in [cdd, pfam, tigr, cog]:
-                if db != 'NA':
-                    db_pattern = '%s\.%s|%s\.%s' % (db, ext.lower(), db, ext.upper())
-                    dbPath = [find_re(db_pattern, s) for s in search_dirs]
-                    if dbPath:
-                        dbPathList.extend(dbPath)
-                    else:
-                        warn_message = 'file %s not found' % db
-                        warnings.warn(warn_message)
-            if dbPathList:
-                #Flatten the list
-                dbPathList = [item for sublist in dbPathList for item in sublist]
-                path_dict[id] = dbPathList
-            else:
-                pass
-    return path_dict
-#------------------------------------------------------------------------------
-def msa_merge_table(target, source, env = database_env):
-    '''
-    Create a merged MSA table for mafft --merge.
-    e.g.
-    1 2 3 #
-    4 5 6 7 #
-    8 9 10 #
-    Sequences 1, 2, and 3 are aligned.
-    Sources is a list of MSA paths.
-    '''
-    with open(str(target[0]), 'w') as mt:
-        nseq = 1
-        for msa in source:
-            msa = str(msa)
-            with open(msa, 'r') as m:
-                for i in m:
-                    if i.startswith('>'):
-                        mt.write('%d ' % nseq)
-                        nseq += 1
-                mt.write('#\n')
-    return None
-
-msa_table_build = Builder(action = msa_merge_table)
-#------------------------------------------------------------------------------
-def pickle_dump(pickle_out, object):
-    '''
-    Save a pickle object.
-    '''
-    pickle.dump( object, open( pickle_out, 'wb' ) )
-    return None
 #==============================================================================
 ###---Actions and Builders---###
-
+#==============================================================================
 #Keep only unique sequences in a FASTA file
 fasta_uniqseq_action = (r"sed -e '/^>/s/$/@/' -e 's/^>/#/' $SOURCE | "
 r"tr -d '\n' | "
@@ -143,7 +103,6 @@ r'tr " " "\n" > $TARGET')
 fasta_uniqseq_build = Builder(action = fasta_uniqseq_action)
 #------------------------------------------------------------------------------
 #Options for MAFFT builders
-#mafft_opts = {'--auto':'', '--anysymbol':'', 'maxiterate':1000}
 mafft_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.mafft_opts)
 #------------------------------------------------------------------------------
 """
@@ -154,6 +113,9 @@ $SOURCES are the subMSA table and concatenated input alignment.
 """
 mafft_merge_action = 'mafft %s --merge $SOURCES > $TARGET' % mafft_optstring
 mafft_merge_build = Builder(action = mafft_merge_action)
+#------------------------------------------------------------------------------
+#Builder to create an MSA merge table for MAFFT merge
+msa_table_build = Builder(action = alignment.msa_merge_table)
 #------------------------------------------------------------------------------
 """
 MAFFT --addprofile builder.
@@ -177,24 +139,27 @@ mafft_add_build = Builder(action = mafft_add_action)
 """
 MUSCLE profile-profile alignment builder.
 """
-# muscle_pp_opts = {'-seqtype':'auto', '-profile':'', '-in1':'${SOURCES[0]}',
-# '-in2':'${SOURCES[1]}', '-out':'$TARGET'}
 muscle_pp_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.muscle_pp_opts)
 
 muscle_profile_action = 'muscle %s' % muscle_pp_optstring
 muscle_profile_build = Builder(action = muscle_profile_action)
 #------------------------------------------------------------------------------
-#Mark duplicate FASTA headers with an identifier
+#Builder for ML trees with FastTree
+fasttree_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.fasttree_opts)
+fasttree_action = 'fasttree %s $SOURCE > ${TARGETS[1]}' % fasttree_optstring
+fasttree_build = Builder(action = fasttree_action)
+#------------------------------------------------------------------------------
+#Build a FASTA file with duplicate headers marked with an identifier
 fasta_unique_header_build = Builder(action = 'python %s/fasta_unique_header.py --input $SOURCE --output $TARGET' % database_env['SCRIPTS'])
 #------------------------------------------------------------------------------
 #Create builders dictionary and append to environment
 builders = {'MafftMerge':mafft_merge_build, 'MSATbl':msa_table_build,
 'MafftAddProfile':mafft_addprofile_build, 'MafftAdd':mafft_add_build,
 'MusclePP':muscle_profile_build, 'FastaUniqHeader':fasta_unique_header_build,
-'FastaUniqSeq':fasta_uniqseq_build}
+'FastaUniqSeq':fasta_uniqseq_build, 'FastTree':fasttree_build}
 
 database_env.Append(BUILDERS = builders)
-
-SConscript(['protein/SConscript', 'crispr/SConscript'], exports = 'datbase_env')
+#------------------------------------------------------------------------------
+SConscript(['protein/SConscript', 'crispr/SConscript'], exports = 'database_env')
 
 Export('database_env')

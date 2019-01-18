@@ -34,6 +34,8 @@ def domtbl_pickledict_build(target, source, env):
     pickle.dump( hit_dict, open( target, 'wb' ) )
     return None
 #------------------------------------------------------------------------------
+
+
 # parser = argparse.ArgumentParser()
 # parser.add_argument('--input', type=str, dest='input_file', action='store',
 # help='input hmmsearch domain results. Required.')

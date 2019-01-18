@@ -2,6 +2,12 @@
 Ian Rambo
 Build HMMs from corresponding Multiple Sequence Alignments.
 """
+import os
+import warnings
+import pickle
+import msa_path
+import PROGRAM_OPTIONS
+Import('database_env')
 #------------------------------------------------------------------------------
 #Create or load dictionary for corresponding multiple sequence alignment paths
 dict_pickle = os.path.join(database_env['SRCDIR'], 'msa_source_paths.p')
@@ -11,20 +17,10 @@ if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
     print('msa path dictionary exists, loading pickle object %s...' % dict_pickle)
     msa_paths_dict = pickle.load( open( dict_pickle, 'rb' ) )
 else:
-    msa_paths_dict = build_path_dict(file_table = database_env['DBFILE'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
-    pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
+    msa_paths_dict = msa_path.build_path_dict(file_table = database_env['DBFILE'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
+    pickle.dump( msa_paths_dict, open( dict_pickle, 'wb' ) )
+    #pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
 #------------------------------------------------------------------------------
-###---OPTIONS FOR HMMBUILD---###
-#hmmbuild_opts = {'--cpu':2, '--seed':42}
-
-# ###---OPTIONS FOR RAXML---###
-# raxml_opts = None
-# if database_env['TREEFLAG']:
-#     raxml_opts = {'-s':'$SOURCE', '-K':'GTR', '-m':'PROTGAMMAAUTO',
-#     '-T':'10', '-f':'a', '-N':'autoMRE', '-x':'7', '-p':'7'}
-# else:
-#     pass
-###-----------------------###
 #File containing paths to built HMM profiles
 hmm_pathfile = open(os.path.join(database_env['SRCDIR'], 'hmm_paths.txt'), 'w')
 #File containing paths to combined MSAs
@@ -116,25 +112,28 @@ for profile_id, msap in msa_paths_dict.items():
             hmm_out = os.path.join(database_env['HMMDIR'], os.path.splitext(os.path.basename(ali_stock_uniq))[0] + '.hmm')
             database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
+        #----------------------------------------------------------------------
+        ###---If TREEFLAG == True and path for PHYLIP file, make a tree---###
+        if database_env['TREEFLAG'] and database_env['TREEPROG'] and ali_phylip:
+            if database_env['TREEPROG'] == 'raxml':
+                ###---Build a RAxML tree---###
+                ###---Set targets for RAxML---###
+                raxml_targets = [os.path.join(database_env['TREEDIR'], 'RAxML_%s.%s' % (x, profile_id)) for x in ['bestTree','bipartitionsBranchLabels','bootstrap','bipartitions']]
+                for r in raxml_targets:
+                    DEFAULT_TARGETS.append(r)
+                #Alignment name identifier
+                PROGRAM_OPTIONS.raxml_opts['-n'] = profile_id
+                raxml_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.raxml_opts)
+                raxml_action = 'raxmlHPC-PTHREADS-AVX %s' % raxml_optstring
+                Command(raxml_targets, ali_phylip, raxml_action)
 
-        ###---If TREEFLAG == True, build RAxML tree---###
-        if database_env['TREEFLAG'] and ali_phylip:
-            ###---Set targets for RAxML---###
-            raxml_targets = ['RAxML_' + x + profile_id for x in ['bestTree','bipartitionsBranchLabels','bootstrap','bipartitions']]
-            for r in raxml_targets:
-                DEFAULT_TARGETS.append(r)
-            """
-            RAxML action for MSA profile.
-            """
-            PROGRAM_OPTIONS.raxml_opts['-n'] = profile_id
-            raxml_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.raxml_opts)
-            raxml_action = 'raxmlHPC-PTHREADS-AVX %s' % raxml_optstring
-            Command(raxml_targets, ali_phylip, raxml_action)
+            elif database_env['TREEPROG'] == 'fasttree':
+                ###---Build a FastTree---###
+                fasttree_targets = [os.path.join(database_env['TREEDIR'], 'FastTree_%s.%s' % (profile_id, x)) for x in ['logfile', 'newick']]
+                database_env.FastTree(fasttree_targets, ali_phylip)
 
-            #raxml_builder = Builder(action = raxml_action)
-            #database_env['BUILDERS']['RAXML'] = raxml_builder
-            #Run RAxML
-            #database_env.RAXML(raxml_targets, ali_phylip)
+            else:
+                warnings.warn('Warning! No valid tree program specified\n')
 
         else:
             pass

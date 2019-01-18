@@ -23,8 +23,6 @@ excellent gnu parallel tool, available at: https://www.gnu.org/software/parallel
 The parameters used for command line tool options can be adjusted in
 scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
 option does not have a value, use a blank string '' .
-
-Questions or found a bug? Message me at: ian.rambo@utexas.edu
 """, append = True)
 
 #==============================================================================
