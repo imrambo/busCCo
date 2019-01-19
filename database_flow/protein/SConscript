@@ -33,6 +33,7 @@ for profile_id, msap in msa_paths_dict.items():
     ###---Multiple Sequence Alignments and HMM building---###
     msap = [i for i in msap if i != 'NA']
     if msap:
+        print(msap)
         profile_id = profile_id.replace('\"', '')
         hmm_out = os.path.join(database_env['HMMDIR'], '%s.hmm' % profile_id)
         PROGRAM_OPTIONS.hmmbuild_opts['-n'] = profile_id
