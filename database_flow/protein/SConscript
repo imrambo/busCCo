@@ -109,8 +109,8 @@ for profile_id, msap in msa_paths_dict.items():
             msa_pathfile.write(os.path.abspath(ali_fasta) + '\n' + os.path.abspath(ali_stock) + '\n' + os.path.abspath(ali_phylip) + '\n')
 
             #Build the HMM
-            hmm_out = os.path.join(database_env['HMMDIR'], os.path.splitext(os.path.basename(ali_stock_uniq))[0] + '.hmm')
-            database_env.Command(hmm_out, ali_stock_uniq, hmmbuild_action)
+            hmm_out = os.path.join(database_env['HMMDIR'], os.path.splitext(os.path.basename(ali_stock))[0] + '.hmm')
+            database_env.Command(hmm_out, ali_stock, hmmbuild_action)
             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
         #----------------------------------------------------------------------
         ###---If TREEFLAG == True and path for PHYLIP file, make a tree---###
