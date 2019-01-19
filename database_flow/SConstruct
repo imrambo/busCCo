@@ -41,7 +41,7 @@ import PROGRAM_OPTIONS
 import alignment
 #==============================================================================
 ###---Command line options
-AddOption('--db_out', dest='db_dir', type='string', nargs=1,
+AddOption('--db_out', dest='db_out', type='string', nargs=1,
 action='store', help='root database output directory', default = '.')
 
 AddOption('--msa_dir', dest = 'msa_dir', type = 'string', nargs = 1,
