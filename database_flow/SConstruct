@@ -35,7 +35,7 @@ import warnings
 import sys
 
 #Path for scripts
-sys.path.insert(0, os.path.abspath('../scripts'))
+#sys.path.insert(0, os.path.abspath('../scripts'))
 
 import PROGRAM_OPTIONS
 import alignment
@@ -48,21 +48,21 @@ AddOption('--msa_dir', dest = 'msa_dir', type = 'string', nargs = 1,
 action = 'store', help = 'root directory containing input multiple sequence alignments',
 default = '.')
 
-AddOption('--build_tree', dest='treeflag', type='int', nargs=1,
-action='store', default=0,
-help='build trees of MSAs with RAxML. State 1 or 0; Default = 0.')
-
-AddOption('--tree_prog', dest='treeprog', type='string', nargs=1,
-action = 'store', default='',
-help='program for phylogenetic trees. Choose "raxml" or "fasttree". Only used if --build_tree == 1.')
+# AddOption('--build_tree', dest='treeflag', type='int', nargs=1,
+# action='store', default=0,
+# help='build trees of MSAs with RAxML. State 1 or 0; Default = 0.')
+#
+# AddOption('--tree_prog', dest='treeprog', type='string', nargs=1,
+# action = 'store', default='',
+# help='program for phylogenetic trees. Choose "raxml" or "fasttree". Only used if --build_tree == 1.')
 #==============================================================================
 ###---Set environment
 database_env = Environment(SRCDIR=os.path.abspath('../src'),
 MSACURDIR = GetOption('msa_dir'),
 DBDIR = GetOption('db_out'),
-SCRIPTS = os.path.abspath('../scripts'),
-TREEFLAG = GetOption('treeflag'),
-TREEPROG = GetOption('treeprog'))
+SCRIPTS = os.path.abspath('../scripts'))
+#TREEFLAG = GetOption('treeflag'),
+#TREEPROG = GetOption('treeprog'))
 
 #MSACURDIR = os.path.abspath(GetOption('msa_dir')),
 #DBDIR = os.path.abspath(GetOption('db_outdir')),

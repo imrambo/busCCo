@@ -71,7 +71,6 @@ for profile_id, msap in msa_paths_dict.items():
             database_env.Command(ali_stock, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
             database_env.Command(ali_phylip, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
 
-            #database_env.MSAFormat(ali_stock, ali_fasta)
             database_env.Command(hmm_out, ali_stock, hmmbuild_action)
             #Build the HMM
             hmm_pathfile.write(os.path.abspath(hmm_out) + '\n')
@@ -139,4 +138,4 @@ hmm_pathfile.close()
 msa_pathfile.close()
 #------------------------------------------------------------------------------
 #Clear out the tmp directory
-Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
+#Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
