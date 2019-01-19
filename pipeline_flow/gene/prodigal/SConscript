@@ -1,5 +1,4 @@
 import os
-#Import('gene_env')
 Import('pipeline_env')
 """
 Predict genes with Prodigal

@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 """
 Ian Rambo
 Functions to get the best hits from tabular output of HMMER and BLAST+

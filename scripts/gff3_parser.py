@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 #------------------------------------------------------------------------------
 def gff3_parser(gff_file, program='general'):
     """

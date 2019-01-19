@@ -6,7 +6,7 @@ Ian Maguire Rambo
 -------------------------------------------------------------------------------
 Pipeline Flow
 
-Usage: 'scons-3.0.1 --fasta=</path/to/nucleotide/fasta> --prefix_id<the identifier for this file> --outdir_root=</path/to/root/output>
+Usage: 'scons-3.0.1 --fasta=</path/to/nucleotide/fasta> --prefix_id<identifier string for this fasta> --outdir_root=</path/to/root/output>
 
 Purpose: Mine CRISPR-Cas systems from genomic and metagenomic sequence data.
 

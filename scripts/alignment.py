@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 """
 Ian Rambo
 Functions for use with multiple sequence alignments.
