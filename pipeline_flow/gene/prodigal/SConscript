@@ -8,7 +8,7 @@ Predict genes with Prodigal
 Ian Rambo
 Thirteen... that's a mighty unlucky number... for somebody!
 """
-prodigal_targets = [os.path.join(pipeline_env['PRODIGAL'], '%s_prodigal.%s' % (pipeline_env['FASTAID'], suffix)) for suffix in ['gff', 'faa']]
+prodigal_targets = [os.path.join(pipeline_env['PRODIGAL'], '%s_prodigal.%s' % (pipeline_env['FASTAID'], suffix)) for suffix in ['gff', 'faa', 'fna']]
 
 pipeline_env.Prodigal(prodigal_targets, pipeline_env['FASTA'])
 
