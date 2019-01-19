@@ -17,7 +17,7 @@ if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
     print('msa path dictionary exists, loading pickle object %s...' % dict_pickle)
     msa_paths_dict = pickle.load( open( dict_pickle, 'rb' ) )
 else:
-    msa_paths_dict = msa_path.build_path_dict(file_table = database_env['DBFILE'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
+    msa_paths_dict = msa_path.build_path_dict(file_table = database_env['CASTBL'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
     pickle.dump( msa_paths_dict, open( dict_pickle, 'wb' ) )
     #pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
 #------------------------------------------------------------------------------

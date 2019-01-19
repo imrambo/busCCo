@@ -69,7 +69,7 @@ TREEPROG = GetOption('treeprog'))
 #MSACURDIR = os.path.abspath(GetOption('msa_dir')),
 #DBDIR = os.path.abspath(GetOption('db_outdir')),
 
-database_env.Replace(DBFILE = os.path.join(database_env['SRCDIR'], 'CasProfilesMaster.txt'),
+database_env.Replace(CASTBL = os.path.join(database_env['SRCDIR'], 'CasProfilesMaster.txt'),
 #HMMDIR = os.path.join(database_env['DBDIR'], 'gene/hmm'),
 #ALIGNDIR = os.path.join(database_env['DBDIR'], 'gene/msa'),
 HMMDIR = os.path.join(database_env['SRCDIR'], 'gene/hmm'),
