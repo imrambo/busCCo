@@ -17,8 +17,8 @@ input file name will be used.
 An output directory with your --prefix_id will be created in --outdir_root,
 and will store your output for a particular FASTA file.
 
-If you want to analyze multiple FASTA files in parallel, I recommend using the
-excellent gnu parallel tool, available at: https://www.gnu.org/software/parallel/
+If you want to run builds for multiple FASTA files in parallel, I recommend using the
+excellent gnu parallel tool available at: https://www.gnu.org/software/parallel/
 
 The parameters used for command line tool options can be adjusted in
 scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
@@ -37,7 +37,7 @@ from gff3_parser import *
 from domtbl_dict import domtbl_pickledict_build
 import PROGRAM_OPTIONS
 
-EnsurePythonVersion(3, 5)
+EnsurePythonVersion(3)
 EnsureSConsVersion(3, 0, 1)
 #------------------------------------------------------------------------------
 ###---Command line options---###

@@ -24,17 +24,10 @@ If using --build_tree, you must also specify --tree_prog 'raxml' or 'fasttree'.
 The parameters used for command line tool options can be adjusted in
 scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
 option does not have a value, use a blank string '' .
-
-Questions or found a bug? Message me at: ian.rambo@utexas.edu
-
-Thanks for using busCCo!
-
-Peace,
-Rambo
 """, append = True)
 
 #==============================================================================
-EnsurePythonVersion(3, 5)
+EnsurePythonVersion(3)
 EnsureSConsVersion(3, 0, 1)
 
 import pickle
@@ -50,8 +43,8 @@ import PROGRAM_OPTIONS
 import alignment
 #==============================================================================
 ###---Command line options
-# AddOption('--db_dir', dest='db_dir', type='string', nargs=1,
-# action='store', help='root database output directory', default = '.')
+AddOption('--db_out', dest='db_dir', type='string', nargs=1,
+action='store', help='root database output directory', default = '.')
 
 AddOption('--msa_dir', dest = 'msa_dir', type = 'string', nargs = 1,
 action = 'store', help = 'root directory containing input multiple sequence alignments',
@@ -68,7 +61,7 @@ help='program for phylogenetic trees. Choose "raxml" or "fasttree". Only used if
 ###---Set environment
 database_env = Environment(SRCDIR=os.path.abspath('../src'),
 MSACURDIR = GetOption('msa_dir'),
-DBDIR = GetOption('db_dir'),
+DBDIR = GetOption('db_out'),
 SCRIPTS = os.path.abspath('../scripts'),
 TREEFLAG = GetOption('treeflag'),
 TREEPROG = GetOption('treeprog'))
@@ -82,7 +75,7 @@ database_env.Replace(DBFILE = os.path.join(database_env['SRCDIR'], 'CasProfilesM
 HMMDIR = os.path.join(database_env['SRCDIR'], 'gene/hmm'),
 ALIGNDIR = os.path.join(database_env['SRCDIR'], 'gene/msa'),
 TMPDIR = os.path.abspath('../tmp'),
-CRISPR_REP = os.path.join(database_env['DBDIR'], 'crispr/repeat'),
+CRISPRDB = os.path.join(database_env['SRCDIR'], 'DirectRepCRISPR.fna'),
 TREEDIR = os.path.join(database_env['DBDIR'], 'trees'))
 
 VariantDir(database_env['TMPDIR'], database_env['MSACURDIR'], duplicate = 0)
@@ -162,4 +155,4 @@ database_env.Append(BUILDERS = builders)
 #------------------------------------------------------------------------------
 SConscript(['protein/SConscript', 'crispr/SConscript'], exports = 'database_env')
 
-Export('database_env')
+#Export('database_env')

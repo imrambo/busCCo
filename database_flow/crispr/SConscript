@@ -7,20 +7,19 @@ import PROGRAM_OPTIONS
 Import('database_env')
 #==============================================================================
 #Download CRISPR repeat database
-crispr_repeat_db = os.path.join(database_env['CRISPR_REP'], 'DRCRISPR.fna')
+#crispr_repeat_db = os.path.join(database_env['CRISPR_REP'], 'DRCRISPR.fna')
+
 ##Add into GitHub or reference data - what if the link goes down?
-Command(crispr_repeat_db, None, 'wget http://crispr.i2bc.paris-saclay.fr/crispr/BLAST/DR/DRdatabase -O $TARGET')
+#Command(crispr_repeat_db, None, 'wget http://crispr.i2bc.paris-saclay.fr/crispr/BLAST/DR/DRdatabase -O $TARGET')
 #------------------------------------------------------------------------------
 #Build the BLAST+ database
-blastdb_targets = [crispr_repeat_db + suffix for suffix in ['.nhr', '.nin', '.nsq']]
+blastdb_targets = [database_env['CRISPRDB'] + suffix for suffix in ['.nhr', '.nin', '.nsq']]
 
-for b in blastdb_targets:
-        DEFAULT_TARGETS.append(b)
+# for b in blastdb_targets:
+#         DEFAULT_TARGETS.append(b)
 
 Progress('Evaluating $TARGET\n')
-Command(blastdb_targets, crispr_repeat_db, 'makeblastdb -in $SOURCE -input_type fasta -dbtype nucl')
+Command(blastdb_targets, database_env['CRISPRDB'], 'makeblastdb -in $SOURCE -input_type fasta -dbtype nucl')
 
-database_env.Replace(CRISPRDB = crispr_repeat_db)
-
-crispr_db_symlink = os.path.join(database_env['SRCDIR'], 'DRCRISPR.fna')
-database_env.Command(crispr_db_symlink, crispr_repeat_db, PROGRAM_OPTIONS.symbolic_link)
+#crispr_db_symlink = os.path.join(database_env['SRCDIR'], 'DRCRISPR.fna')
+#database_env.Command(crispr_db_symlink, crispr_repeat_db, PROGRAM_OPTIONS.symbolic_link)
