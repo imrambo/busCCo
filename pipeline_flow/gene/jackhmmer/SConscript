@@ -8,8 +8,7 @@ import pandas as pd
 VariantDir(pipeline_env['JH_CAS1INIT'], [pipeline_env['HS_CAS1INIT'], pipeline_env['TMPDIR']], duplicate = 0)
 #------------------------------------------------------------------------------
 ###---jackhmmer search to verify initial Cas1 hmmsearch results---###
-#if DEFAULT_TARGETS and list(set([re.match(r'cas1--\.faa', os.path.basename(dt)) for dt in DEFAULT_TARGETS]))[0]:
-if DEFAULT_TARGETS and any([re.match(r'[Cc]as1--.*?\.faa', os.path.basename(dt)) for dt in DEFAULT_TARGETS])
+if DEFAULT_TARGETS and any([re.match(r'[Cc]as1--.*?\.faa', os.path.basename(dt)) for dt in DEFAULT_TARGETS]):
     pipeline_env['CAS1'] = 1
 else:
     pass
