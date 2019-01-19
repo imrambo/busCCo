@@ -27,7 +27,7 @@ msa_pathfile = open(os.path.join(database_env['SRCDIR'], 'msa_paths.txt'), 'w')
 ###============================================================================
 #Create merged alignments from curated MSAs and build HMM profiles
 for profile_id, msap in msa_paths_dict.items():
-
+    print(profile_id)
     ###---Multiple Sequence Alignments and HMM building---###
     msap = [i for i in msap if i != 'NA']
     if msap:
