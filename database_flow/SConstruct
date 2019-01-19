@@ -35,7 +35,7 @@ import warnings
 import sys
 
 #Path for scripts
-#sys.path.insert(0, os.path.abspath('../scripts'))
+sys.path.insert(0, os.path.abspath('../scripts'))
 
 import PROGRAM_OPTIONS
 import alignment
