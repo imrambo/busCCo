@@ -72,7 +72,7 @@ HMMDIR = os.path.join(database_env['DBDIR'], 'gene/hmm'),
 ALIGNDIR = os.path.join(database_env['DBDIR'], 'gene/msa'),
 #HMMDIR = os.path.join(database_env['SRCDIR'], 'gene/hmm'),
 #ALIGNDIR = os.path.join(database_env['SRCDIR'], 'gene/msa'),
-TMPDIR = os.path.abspath('../tmp'),
+#TMPDIR = os.path.abspath('../tmp'),
 CRISPRDB = os.path.join(database_env['SRCDIR'], 'DirectRepCRISPR.fna'),
 TREEDIR = os.path.join(database_env['DBDIR'], 'trees'))
 
