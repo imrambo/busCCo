@@ -25,7 +25,7 @@ option does not have a value, use a blank string '' .
 """, append = True)
 
 #==============================================================================
-EnsurePythonVersion(3)
+EnsurePythonVersion(3,0)
 EnsureSConsVersion(3, 0, 1)
 
 import pickle
