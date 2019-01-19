@@ -11,7 +11,7 @@ Import('database_env')
 #------------------------------------------------------------------------------
 #Create or load dictionary for corresponding multiple sequence alignment paths
 dict_pickle = os.path.join(database_env['SRCDIR'], 'msa_source_paths.p')
-#Command(dict_pickle, database_env['DBFILE'], 'python3 %s/msa_path_dict.py --input $SOURCE --output $TARGET --search_dir %s --extension %s' % (os.getcwd(), database_env['MSACURDIR'], 'FASTA'))
+
 msa_path_dict = {}
 if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
     print('msa path dictionary exists, loading pickle object %s...' % dict_pickle)
@@ -19,7 +19,6 @@ if os.path.exists(dict_pickle) and os.path.getsize(dict_pickle) > 0:
 else:
     msa_paths_dict = msa_path.build_path_dict(file_table = database_env['CASTBL'], search_dirs = [database_env['MSACURDIR']], ext = 'FASTA')
     pickle.dump( msa_paths_dict, open( dict_pickle, 'wb' ) )
-    #pickle_dump(pickle_out = dict_pickle, object = msa_paths_dict)
 #------------------------------------------------------------------------------
 #File containing paths to built HMM profiles
 hmm_pathfile = open(os.path.join(database_env['SRCDIR'], 'hmm_paths.txt'), 'w')
@@ -53,8 +52,8 @@ for profile_id, msap in msa_paths_dict.items():
 
             #Get FASTA alignment with unique headers
             database_env.FastaUniqHeader(ali_fasta, msap[0])
-            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
-            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+            database_env.Command(ali_stock, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
 
             database_env.Command(hmm_out, ali_stock, hmmbuild_action)
             #Build the HMM
@@ -73,8 +72,8 @@ for profile_id, msap in msa_paths_dict.items():
             database_env.MusclePP(ali_fasta_tmp, msap)
             database_env.FastaUniqHeader(ali_fasta, ali_fasta_tmp)
             #Convert FASTA aligment to Stockholm and relaxed PHYLIP format
-            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
-            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+            database_env.Command(ali_stock, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
 
             #database_env.MSAFormat(ali_stock, ali_fasta)
             database_env.Command(hmm_out, ali_stock, hmmbuild_action)
@@ -103,8 +102,8 @@ for profile_id, msap in msa_paths_dict.items():
             database_env.FastaUniqHeader(ali_fasta, ali_fasta_tmp)
 
             #Convert FASTA aligment to Stockholm and relaxed PHYLIP format
-            database_env.Command(ali_stock, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
-            database_env.Command(ali_phylip, ali_fasta, 'python %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
+            database_env.Command(ali_stock, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt stockholm' % database_env['SCRIPTS'])
+            database_env.Command(ali_phylip, ali_fasta, 'python3 %s/msa_format.py --input $SOURCE --output $TARGET --infmt fasta --outfmt phylip-relaxed' % database_env['SCRIPTS'])
             msa_pathfile.write(os.path.abspath(ali_fasta) + '\n' + os.path.abspath(ali_stock) + '\n' + os.path.abspath(ali_phylip) + '\n')
 
             #Build the HMM
