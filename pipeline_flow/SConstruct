@@ -37,7 +37,7 @@ from gff3_parser import *
 from domtbl_dict import domtbl_pickledict_build
 import PROGRAM_OPTIONS
 
-EnsurePythonVersion(3)
+EnsurePythonVersion(3,0)
 EnsureSConsVersion(3, 0, 1)
 #------------------------------------------------------------------------------
 ###---Command line options---###

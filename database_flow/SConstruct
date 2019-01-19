@@ -10,9 +10,7 @@ busCCo v1.0.0
 Ian Maguire Rambo
 -------------------------------------------------------------------------------
 Database Flow
-
-#Usage: 'scons-3.0.1 --db_outdir=</path/to/database/outdir/root> --msa_dir=</path/to/msa/directory> --build_tree=<0/1> --tree_prog=<raxml/fastree>'
-Usage: 'scons-3.0.1 --msa_dir=</path/to/msa/directory> --build_tree=<0/1> --tree_prog=<raxml/fastree>'
+Usage: 'scons-3.0.1 --db_out=</path/to/database/output> --msa_dir=</path/to/msa/directory> --build_tree=<0/1> --tree_prog=<raxml/fastree>'
 
 Purpose: Merge Multiple Sequence Alignments and build Hidden Markov Models.
 Build phylogenetic trees from Multiple Sequence Alignments (optional).
