@@ -139,4 +139,4 @@ hmm_pathfile.close()
 msa_pathfile.close()
 #------------------------------------------------------------------------------
 #Clear out the tmp directory
-Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
+#Command(None, Glob(os.path.join(database_env['TMPDIR'], '*.fasta')), Delete('$SOURCES'))
