@@ -76,9 +76,9 @@ TMPDIR = os.path.abspath('../tmp'),
 CRISPRDB = os.path.join(database_env['SRCDIR'], 'DirectRepCRISPR.fna'),
 TREEDIR = os.path.join(database_env['DBDIR'], 'trees'))
 
-VariantDir(database_env['TMPDIR'], database_env['MSACURDIR'], duplicate = 0)
-VariantDir(database_env['ALIGNDIR'], database_env['TMPDIR'], duplicate = 0)
-VariantDir(database_env['HMMDIR'], database_env['ALIGNDIR'], duplicate = 0)
+#VariantDir(database_env['TMPDIR'], database_env['MSACURDIR'], duplicate = 0)
+#VariantDir(database_env['ALIGNDIR'], database_env['TMPDIR'], duplicate = 0)
+#VariantDir(database_env['HMMDIR'], database_env['ALIGNDIR'], duplicate = 0)
 #==============================================================================
 ###---Actions and Builders---###
 #==============================================================================
