@@ -163,4 +163,5 @@ pipeline_env.Append(BUILDERS = builders)
 
 Export('pipeline_env')
 
-SConscript(['crispr/SConscript', 'gene/SConscript', 'clusters/SConscript'], exports = 'pipeline_env')
+#SConscript(['crispr/SConscript', 'gene/SConscript', 'clusters/SConscript'], exports = 'pipeline_env')
+SConscript(['crispr/SConscript', 'gene/prodigal/SConscript', 'gene/hmmsearch/SConscript', 'gene/jackhmmer/SConscript', 'clusters/SConscript', 'gene/SConscript'], exports = 'pipeline_env')
