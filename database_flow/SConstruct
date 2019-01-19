@@ -153,4 +153,4 @@ database_env.Append(BUILDERS = builders)
 #------------------------------------------------------------------------------
 SConscript(['protein/SConscript', 'crispr/SConscript'], exports = 'database_env')
 
-#Export('database_env')
+Export('database_env')
