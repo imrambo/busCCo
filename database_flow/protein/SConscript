@@ -38,7 +38,7 @@ for profile_id, msap in msa_paths_dict.items():
         PROGRAM_OPTIONS.hmmbuild_opts['-n'] = profile_id
         hmmbuild_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.hmmbuild_opts)
         hmmbuild_action = 'hmmbuild %s $TARGET $SOURCE' % hmmbuild_optstring
-        ali_phylip = None
+        #ali_phylip = None
 
         if len(msap) == 1:
 
