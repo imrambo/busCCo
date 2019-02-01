@@ -20,7 +20,7 @@ Set to 0 (build trees; default) or 1 (build trees).
 If using --build_tree, you must also specify --tree_prog 'raxml' or 'fasttree'.
 
 The parameters used for command line tool options can be adjusted in
-scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
+scripts/PROGRAM_OPTIONS.py . These are Python dictionaries. If an
 option does not have a value, use a blank string '' .
 """, append = True)
 

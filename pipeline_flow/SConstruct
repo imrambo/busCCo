@@ -137,7 +137,7 @@ minced_fasta_builder = Builder(action = minced_gff2fasta)
 #Builder to convert PilerCR report (summary by position) to GFF3 format
 pilercr_gff_builder = Builder(action = pilercr_report2gff)
 #==============================================================================
-###---Builders---###
+###Builder for Prodigal gene calling
 pipeline_env.Replace(PRODIGALOPTS = PROGRAM_OPTIONS.prodigal_opts)
 
 prodigal_optstring = PROGRAM_OPTIONS.optstring_join(PROGRAM_OPTIONS.prodigal_opts)
