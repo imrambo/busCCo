@@ -6,11 +6,11 @@ Ian Maguire Rambo
 -------------------------------------------------------------------------------
 Pipeline Flow
 
-Usage: 'scons-3.0.1 --fasta=</path/to/nucleotide/fasta> --prefix_id<identifier string for this fasta> --outdir_root=</path/to/root/output>
+Usage: 'python3 $( which scons-3.0.4 ) --fasta=</path/to/nucleotide/fasta> --prefix_id<identifier string for this fasta> --outdir_root=</path/to/root/output>
 
 Purpose: Mine CRISPR-Cas systems from genomic and metagenomic sequence data.
 
-The pipeline only requires you to specify the path of a nucleotide FASTA file
+The pipeline requires you to specify the path of a nucleotide FASTA file
 as input. The --prefix_id can be specified for your output files, otherwise the
 input file name will be used.
 
@@ -21,7 +21,7 @@ If you want to run builds for multiple FASTA files in parallel, I recommend usin
 excellent gnu parallel tool available at: https://www.gnu.org/software/parallel/
 
 The parameters used for command line tool options can be adjusted in
-scripts/PROGRAM_OPTIONS.py . These are vanilla Python dictionaries. If an
+scripts/PROGRAM_OPTIONS.py . These are Python dictionaries. If an
 option does not have a value, use a blank string '' .
 """, append = True)
 
@@ -36,6 +36,7 @@ from besthit import domtbl_besthits, blast_besthits
 from gff3_parser import *
 from domtbl_dict import domtbl_pickledict_build
 import PROGRAM_OPTIONS
+from Bio import SeqIO
 
 #EnsurePythonVersion(3, 0)
 #EnsureSConsVersion(3, 0, 1)
@@ -58,8 +59,8 @@ if pipeline_env['FASTA'] and not pipeline_env['FASTAID']:
 else:
     pass
 
-pipeline_env.Replace(OUTROOT = GetOption('outdir_root'))
-pipeline_env.Replace(OUTROOT = os.path.join(pipeline_env['OUTROOT'], pipeline_env['FASTAID']),
+#pipeline_env.Replace(OUTROOT = GetOption('outdir_root'))
+pipeline_env.Replace(OUTROOT = os.path.join(GetOption('outdir_root'), pipeline_env['FASTAID']),
 SRCDIR = os.path.abspath('../src'),
 TMPDIR = os.path.abspath('../tmp'),
 SCRIPTS = os.path.abspath('../scripts'),
